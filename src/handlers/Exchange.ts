@@ -5,6 +5,7 @@ import {
   updateUserPositionWithSell,
 } from "../utils/pnl.js";
 import { COLLATERAL_SCALE } from "../utils/constants.js";
+import { updateTraderOnOrderFill, isExcludedAddress, getOrCreateTraderProfile, getOrCreateGlobalTraderStats } from "../utils/trader.js";
 
 const TRADE_TYPE_BUY = "Buy";
 const TRADE_TYPE_SELL = "Sell";
@@ -150,6 +151,20 @@ Exchange.OrderFilled.handler(async ({ event, context }) => {
       order.baseAmount,
     );
   }
+
+  // Wrapped: Update trader profile for the maker
+  const conditionData = await context.MarketData.get(tokenId);
+  const conditionId = conditionData ? conditionData.condition : "";
+  await updateTraderOnOrderFill(
+    context,
+    event.params.maker,
+    tokenId,
+    conditionId,
+    order.side === "BUY" ? "BUY" : "SELL",
+    size,
+    price,
+    event.block.timestamp,
+  );
 });
 
 // ============================================================
@@ -172,6 +187,28 @@ Exchange.OrdersMatched.handler(async ({ event, context }) => {
     makerAmountFilled: event.params.makerAmountFilled,
     takerAmountFilled: event.params.takerAmountFilled,
   });
+
+  // Wrapped: Update taker's trader profile
+  const takerAddress = event.params.takerOrderMaker;
+  if (!isExcludedAddress(takerAddress)) {
+    const takerTokenId =
+      side === TRADE_TYPE_BUY
+        ? event.params.takerAssetId.toString()
+        : event.params.makerAssetId.toString();
+    const conditionData = await context.MarketData.get(takerTokenId);
+    const conditionId = conditionData ? conditionData.condition : "";
+    const takerSide = side === TRADE_TYPE_BUY ? "SELL" : "BUY";
+    await updateTraderOnOrderFill(
+      context,
+      takerAddress,
+      takerTokenId,
+      conditionId,
+      takerSide,
+      size,
+      0n,
+      event.block.timestamp,
+    );
+  }
 
   // Update global volume
   const global = await getOrCreateGlobal(context);

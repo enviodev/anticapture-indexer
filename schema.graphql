@@ -284,3 +284,62 @@ type FpmmPoolMembership {
   funder: String! @index
   amount: BigInt!
 }
+
+## ============================================================
+## Phase 5: Polymarket Wrapped (Personal Trading Recap)
+## ============================================================
+
+type TraderProfile {
+  id: ID!
+  totalTrades: BigInt!
+  totalVolume: BigInt!
+  totalMarketsTraded: BigInt!
+  firstTradeTimestamp: BigInt!
+  lastTradeTimestamp: BigInt!
+  totalBuyVolume: BigInt!
+  totalSellVolume: BigInt!
+  totalPositionSplits: BigInt!
+  totalPositionMerges: BigInt!
+  totalRedemptions: BigInt!
+  totalFeeRefunds: BigInt!
+  winCount: BigInt!
+  lossCount: BigInt!
+  largestSingleTrade: BigInt!
+  mostTradedTokenId: String!
+  mostTradedConditionId: String!
+}
+
+type TraderMarketActivity {
+  id: ID!
+  traderAddress: String! @index
+  conditionId: String! @index
+  tokenId: String! @index
+  totalBuys: BigInt!
+  totalSells: BigInt!
+  totalVolume: BigInt!
+  avgBuyPrice: BigInt!
+  avgSellPrice: BigInt!
+  firstActivityTimestamp: BigInt!
+  lastActivityTimestamp: BigInt!
+  netPosition: BigInt!
+  realizedPnl: BigInt!
+}
+
+type TraderDailyStats {
+  id: ID!
+  traderAddress: String! @index
+  date: String! @index
+  tradesCount: BigInt!
+  volume: BigInt!
+  marketsActive: BigInt!
+  pnl: BigInt!
+}
+
+type GlobalTraderStats {
+  id: ID!
+  totalUniqueTraders: BigInt!
+  totalTrades: BigInt!
+  totalVolume: BigInt!
+  mostActiveTrader: String!
+  highestVolumeTrader: String!
+}

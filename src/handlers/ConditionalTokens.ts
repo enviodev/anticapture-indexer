@@ -14,6 +14,7 @@ import {
   updateUserPositionWithSell,
   loadOrCreateUserPosition,
 } from "../utils/pnl.js";
+import { isExcludedAddress, getOrCreateTraderProfile } from "../utils/trader.js";
 
 const USDC_LOWER = USDC.toLowerCase();
 const NEG_RISK_ADAPTER_LOWER = NEG_RISK_ADAPTER.toLowerCase();
@@ -197,6 +198,15 @@ ConditionalTokens.PositionSplit.handler(async ({ event, context }) => {
       );
     }
   }
+
+  // Wrapped: Increment split counter on trader profile
+  if (!isExcludedAddress(stakeholder)) {
+    const profile = await getOrCreateTraderProfile(context, stakeholder);
+    context.TraderProfile.set({
+      ...profile,
+      totalPositionSplits: profile.totalPositionSplits + 1n,
+    });
+  }
 });
 
 // ============================================================
@@ -243,6 +253,15 @@ ConditionalTokens.PositionsMerge.handler(async ({ event, context }) => {
         event.params.amount,
       );
     }
+  }
+
+  // Wrapped: Increment merge counter on trader profile
+  if (!isExcludedAddress(stakeholder)) {
+    const profile = await getOrCreateTraderProfile(context, stakeholder);
+    context.TraderProfile.set({
+      ...profile,
+      totalPositionMerges: profile.totalPositionMerges + 1n,
+    });
   }
 });
 
@@ -300,5 +319,21 @@ ConditionalTokens.PayoutRedemption.handler(async ({ event, context }) => {
         amount,
       );
     }
+  }
+
+  // Wrapped: Increment redemption counter and track win/loss
+  if (!isExcludedAddress(redeemer)) {
+    const profile = await getOrCreateTraderProfile(context, redeemer);
+    const updatedProfile = {
+      ...profile,
+      totalRedemptions: profile.totalRedemptions + 1n,
+    };
+    // If payout > 0, count as a win; otherwise a loss
+    if (event.params.payout > 0n) {
+      updatedProfile.winCount = profile.winCount + 1n;
+    } else {
+      updatedProfile.lossCount = profile.lossCount + 1n;
+    }
+    context.TraderProfile.set(updatedProfile);
   }
 });

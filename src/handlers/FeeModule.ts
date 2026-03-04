@@ -1,5 +1,6 @@
 import { FeeModule } from "generated";
 import { NEG_RISK_FEE_MODULE } from "../utils/constants.js";
+import { isExcludedAddress, getOrCreateTraderProfile } from "../utils/trader.js";
 
 FeeModule.FeeRefunded.handler(async ({ event, context }) => {
   const negRisk =
@@ -15,4 +16,14 @@ FeeModule.FeeRefunded.handler(async ({ event, context }) => {
     feeCharged: event.params.feeCharged,
     negRisk,
   });
+
+  // Wrapped: Increment fee refund counter on trader profile
+  const refundee = event.params.to;
+  if (!isExcludedAddress(refundee)) {
+    const profile = await getOrCreateTraderProfile(context, refundee);
+    context.TraderProfile.set({
+      ...profile,
+      totalFeeRefunds: profile.totalFeeRefunds + 1n,
+    });
+  }
 });
