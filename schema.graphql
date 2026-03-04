@@ -231,6 +231,62 @@ type UserPosition {
 }
 
 ## ============================================================
+## Phase 5: Orderbook Heatmap / Replay
+## ============================================================
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+type PriceLevel {
+  id: ID!
+  tokenId: String! @index
+  price: BigInt!
+  side: OrderSide!
+  volume: BigInt!
+  fillCount: BigInt!
+  lastUpdatedTimestamp: BigInt!
+}
+
+type OrderbookSnapshot {
+  id: ID!
+  timestamp: BigInt! @index
+  tokenId: String! @index
+  conditionId: String! @index
+  spread: BigInt!
+  midPrice: BigInt!
+  totalBidVolume: BigInt!
+  totalAskVolume: BigInt!
+  bestBid: BigInt!
+  bestAsk: BigInt!
+  fillCount: BigInt!
+}
+
+type LargeOrder {
+  id: ID!
+  timestamp: BigInt! @index
+  tokenId: String! @index
+  maker: String! @index
+  side: OrderSide!
+  size: BigInt!
+  price: BigInt!
+  txHash: String!
+}
+
+type MarketMicrostructure {
+  id: ID!
+  tokenId: String! @index
+  conditionId: String! @index
+  totalFills: BigInt!
+  totalVolume: BigInt!
+  avgFillSize: BigInt!
+  makerVolume: BigInt!
+  takerVolume: BigInt!
+  lastUpdatedTimestamp: BigInt!
+}
+
+## ============================================================
 ## Phase 4B: FPMM
 ## ============================================================
 

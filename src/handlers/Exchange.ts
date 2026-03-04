@@ -1,10 +1,18 @@
-import { Exchange, type Orderbook, type OrdersMatchedGlobal } from "generated";
+import {
+  Exchange,
+  type Orderbook,
+  type OrdersMatchedGlobal,
+  type PriceLevel,
+  type MarketMicrostructure,
+  type OrderbookSnapshot,
+} from "generated";
 import {
   parseOrderFilled,
   updateUserPositionWithBuy,
   updateUserPositionWithSell,
 } from "../utils/pnl.js";
-import { COLLATERAL_SCALE } from "../utils/constants.js";
+import { COLLATERAL_SCALE, LARGE_ORDER_THRESHOLD } from "../utils/constants.js";
+import { computeFillPrice, quantizePrice, computeFillUsdcValue } from "../utils/price.js";
 
 const TRADE_TYPE_BUY = "Buy";
 const TRADE_TYPE_SELL = "Sell";
@@ -62,6 +70,74 @@ async function getOrCreateGlobal(
     scaledCollateralBuyVolume: 0,
     collateralSellVolume: 0,
     scaledCollateralSellVolume: 0,
+  };
+}
+
+async function getOrCreatePriceLevel(
+  context: any,
+  tokenId: string,
+  price: bigint,
+  side: string,
+): Promise<PriceLevel> {
+  const sideEnum = side === TRADE_TYPE_BUY ? "BUY" : "SELL";
+  const id = `${tokenId}-${sideEnum}-${price.toString()}`;
+  const existing = await context.PriceLevel.get(id);
+  if (existing) return existing;
+  return {
+    id,
+    tokenId,
+    price,
+    side: sideEnum,
+    volume: 0n,
+    fillCount: 0n,
+    lastUpdatedTimestamp: 0n,
+  };
+}
+
+async function getOrCreateMicrostructure(
+  context: any,
+  tokenId: string,
+  conditionId: string,
+): Promise<MarketMicrostructure> {
+  const existing = await context.MarketMicrostructure.get(tokenId);
+  if (existing) return existing;
+  return {
+    id: tokenId,
+    tokenId,
+    conditionId,
+    totalFills: 0n,
+    totalVolume: 0n,
+    avgFillSize: 0n,
+    makerVolume: 0n,
+    takerVolume: 0n,
+    lastUpdatedTimestamp: 0n,
+  };
+}
+
+async function getOrCreateSnapshot(
+  context: any,
+  tokenId: string,
+  conditionId: string,
+  timestamp: bigint,
+): Promise<OrderbookSnapshot> {
+  // Bucket snapshots per 5-minute interval
+  const interval = 300n;
+  const bucket = (timestamp / interval) * interval;
+  const id = `${tokenId}-${bucket.toString()}`;
+  const existing = await context.OrderbookSnapshot.get(id);
+  if (existing) return existing;
+  return {
+    id,
+    timestamp: bucket,
+    tokenId,
+    conditionId,
+    spread: 0n,
+    midPrice: 0n,
+    totalBidVolume: 0n,
+    totalAskVolume: 0n,
+    bestBid: 0n,
+    bestAsk: 0n,
+    fillCount: 0n,
   };
 }
 
@@ -150,6 +226,83 @@ Exchange.OrderFilled.handler(async ({ event, context }) => {
       order.baseAmount,
     );
   }
+
+  // ---- Heatmap / Replay: PriceLevel, LargeOrder, Microstructure, Snapshot ----
+  const isBuy = side === TRADE_TYPE_BUY;
+  const fillPrice = computeFillPrice(
+    event.params.makerAmountFilled,
+    event.params.takerAmountFilled,
+    isBuy,
+  );
+  const quantizedPrice = quantizePrice(fillPrice);
+  const usdcValue = computeFillUsdcValue(
+    event.params.makerAmountFilled,
+    event.params.takerAmountFilled,
+    isBuy,
+  );
+  const timestamp = BigInt(event.block.timestamp);
+
+  // Update PriceLevel — cumulative volume at each quantized price
+  const priceLevel = await getOrCreatePriceLevel(context, tokenId, quantizedPrice, side);
+  context.PriceLevel.set({
+    ...priceLevel,
+    volume: priceLevel.volume + usdcValue,
+    fillCount: priceLevel.fillCount + 1n,
+    lastUpdatedTimestamp: timestamp,
+  });
+
+  // Detect large orders
+  if (usdcValue >= LARGE_ORDER_THRESHOLD) {
+    const largeOrderId = `${event.transaction.hash}-${event.params.orderHash}`;
+    context.LargeOrder.set({
+      id: largeOrderId,
+      timestamp,
+      tokenId,
+      maker: event.params.maker,
+      side: isBuy ? "BUY" : "SELL",
+      size: usdcValue,
+      price: fillPrice,
+      txHash: event.transaction.hash,
+    });
+  }
+
+  // Update MarketMicrostructure
+  const marketData = await context.MarketData.get(tokenId);
+  const conditionId = marketData ? marketData.condition : "";
+  const micro = await getOrCreateMicrostructure(context, tokenId, conditionId);
+  const newTotalFills = micro.totalFills + 1n;
+  const newTotalVolume = micro.totalVolume + usdcValue;
+  const newAvgFillSize = newTotalFills > 0n ? newTotalVolume / newTotalFills : 0n;
+
+  context.MarketMicrostructure.set({
+    ...micro,
+    totalFills: newTotalFills,
+    totalVolume: newTotalVolume,
+    avgFillSize: newAvgFillSize,
+    makerVolume: isBuy ? micro.makerVolume + usdcValue : micro.makerVolume,
+    takerVolume: isBuy ? micro.takerVolume : micro.takerVolume + usdcValue,
+    lastUpdatedTimestamp: timestamp,
+  });
+
+  // Update OrderbookSnapshot (5-minute buckets)
+  const snapshot = await getOrCreateSnapshot(context, tokenId, conditionId, timestamp);
+  const newBidVol = isBuy ? snapshot.totalBidVolume + usdcValue : snapshot.totalBidVolume;
+  const newAskVol = isBuy ? snapshot.totalAskVolume : snapshot.totalAskVolume + usdcValue;
+  const newBestBid = isBuy && fillPrice > snapshot.bestBid ? fillPrice : snapshot.bestBid;
+  const newBestAsk = !isBuy && (snapshot.bestAsk === 0n || fillPrice < snapshot.bestAsk) ? fillPrice : snapshot.bestAsk;
+  const newMidPrice = newBestBid > 0n && newBestAsk > 0n ? (newBestBid + newBestAsk) / 2n : fillPrice;
+  const newSpread = newBestAsk > newBestBid && newBestBid > 0n ? newBestAsk - newBestBid : 0n;
+
+  context.OrderbookSnapshot.set({
+    ...snapshot,
+    totalBidVolume: newBidVol,
+    totalAskVolume: newAskVol,
+    bestBid: newBestBid,
+    bestAsk: newBestAsk,
+    midPrice: newMidPrice,
+    spread: newSpread,
+    fillCount: snapshot.fillCount + 1n,
+  });
 });
 
 // ============================================================

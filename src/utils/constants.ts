@@ -29,3 +29,9 @@ export enum TradeType {
   BUY = 0,
   SELL = 1,
 }
+
+// Large order threshold: $10,000 USDC (6 decimals)
+export const LARGE_ORDER_THRESHOLD = 10_000n * COLLATERAL_SCALE;
+
+// Price precision: prices are stored as 6-decimal fixed point (0 = 0.000000, 1_000_000 = 1.000000)
+export const PRICE_PRECISION = COLLATERAL_SCALE;
