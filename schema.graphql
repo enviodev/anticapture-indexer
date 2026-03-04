@@ -35,3 +35,80 @@ type Market {
   line: BigInt!
   payouts: [BigInt!]!
 }
+
+## ============================================================
+## Phase 2A: Wallet
+## ============================================================
+
+type Wallet {
+  id: ID!
+  signer: String! @index
+  type: String!
+  balance: BigInt!
+  lastTransfer: BigInt!
+  createdAt: BigInt!
+}
+
+type GlobalUSDCBalance {
+  id: ID!
+  balance: BigInt!
+}
+
+## ============================================================
+## Phase 2B: Orderbook
+## ============================================================
+
+type MarketData {
+  id: ID!
+  condition: String! @index
+  outcomeIndex: BigInt
+}
+
+type OrderFilledEvent {
+  id: ID!
+  transactionHash: String!
+  timestamp: BigInt! @index
+  orderHash: String! @index
+  maker: String! @index
+  taker: String! @index
+  makerAssetId: String!
+  takerAssetId: String!
+  makerAmountFilled: BigInt!
+  takerAmountFilled: BigInt!
+  fee: BigInt!
+}
+
+type OrdersMatchedEvent {
+  id: ID!
+  timestamp: BigInt! @index
+  makerAssetID: BigInt!
+  takerAssetID: BigInt!
+  makerAmountFilled: BigInt!
+  takerAmountFilled: BigInt!
+}
+
+type Orderbook {
+  id: ID!
+  tradesQuantity: BigInt!
+  buysQuantity: BigInt!
+  sellsQuantity: BigInt!
+  collateralVolume: BigInt!
+  scaledCollateralVolume: BigDecimal!
+  collateralBuyVolume: BigInt!
+  scaledCollateralBuyVolume: BigDecimal!
+  collateralSellVolume: BigInt!
+  scaledCollateralSellVolume: BigDecimal!
+}
+
+type OrdersMatchedGlobal {
+  id: ID!
+  tradesQuantity: BigInt!
+  buysQuantity: BigInt!
+  sellsQuantity: BigInt!
+  collateralVolume: BigDecimal!
+  scaledCollateralVolume: BigDecimal!
+  collateralBuyVolume: BigDecimal!
+  scaledCollateralBuyVolume: BigDecimal!
+  collateralSellVolume: BigDecimal!
+  scaledCollateralSellVolume: BigDecimal!
+}

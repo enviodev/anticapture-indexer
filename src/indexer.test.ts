@@ -1,11 +1,30 @@
 import { describe, it, expect } from "vitest";
-import { TestHelpers, type FeeRefunded, type Game, type Market } from "generated";
+import {
+  TestHelpers,
+  type FeeRefunded,
+  type Game,
+  type Market,
+  type Wallet,
+  type Orderbook,
+  type OrdersMatchedGlobal,
+} from "generated";
 
 // Import handlers to register them before tests run
 import "./handlers/FeeModule.js";
 import "./handlers/UmaSportsOracle.js";
+import "./handlers/Wallet.js";
+import "./handlers/Exchange.js";
 
-const { MockDb, FeeModule, UmaSportsOracle, Addresses } = TestHelpers;
+const {
+  MockDb,
+  FeeModule,
+  UmaSportsOracle,
+  RelayHub,
+  SafeProxyFactory,
+  USDC,
+  Exchange,
+  Addresses,
+} = TestHelpers;
 
 // ============================================================
 // Fee Module Tests
@@ -159,5 +178,214 @@ describe("UmaSportsOracle", () => {
     expect(market).toBeDefined();
     expect(market!.state).toBe("Resolved");
     expect(market!.payouts).toEqual([1n, 0n]);
+  });
+});
+
+// ============================================================
+// Wallet Tests (Phase 2A)
+// ============================================================
+
+describe("Wallet - SafeProxyFactory", () => {
+  it("should create a Wallet entity from ProxyCreation event", async () => {
+    const mockDb = MockDb.createMockDb();
+    const proxyAddr = Addresses.mockAddresses[0]!;
+    const ownerAddr = Addresses.mockAddresses[1]!;
+
+    const mockEvent = SafeProxyFactory.ProxyCreation.createMockEvent({
+      proxy: proxyAddr,
+      owner: ownerAddr,
+    });
+
+    const result = await SafeProxyFactory.ProxyCreation.processEvent({
+      event: mockEvent,
+      mockDb,
+    });
+
+    const wallet = result.entities.Wallet.get(proxyAddr);
+    expect(wallet).toBeDefined();
+    expect(wallet!.signer).toBe(ownerAddr);
+    expect(wallet!.type).toBe("safe");
+    expect(wallet!.balance).toBe(0n);
+  });
+});
+
+describe("Wallet - USDC Transfer", () => {
+  it("should update wallet balance on incoming USDC transfer", async () => {
+    const mockDb = MockDb.createMockDb();
+    const walletAddr = Addresses.mockAddresses[0]!;
+    const senderAddr = Addresses.mockAddresses[1]!;
+
+    // Seed a wallet
+    const seededDb = mockDb.entities.Wallet.set({
+      id: walletAddr,
+      signer: walletAddr,
+      type: "safe",
+      balance: 1000n,
+      lastTransfer: 0n,
+      createdAt: 100n,
+    });
+
+    const mockEvent = USDC.Transfer.createMockEvent({
+      from: senderAddr,
+      to: walletAddr,
+      amount: 500n,
+    });
+
+    const result = await USDC.Transfer.processEvent({
+      event: mockEvent,
+      mockDb: seededDb,
+    });
+
+    const wallet = result.entities.Wallet.get(walletAddr);
+    expect(wallet).toBeDefined();
+    expect(wallet!.balance).toBe(1500n);
+  });
+
+  it("should update wallet balance on outgoing USDC transfer", async () => {
+    const mockDb = MockDb.createMockDb();
+    const walletAddr = Addresses.mockAddresses[0]!;
+    const receiverAddr = Addresses.mockAddresses[1]!;
+
+    const seededDb = mockDb.entities.Wallet.set({
+      id: walletAddr,
+      signer: walletAddr,
+      type: "safe",
+      balance: 1000n,
+      lastTransfer: 0n,
+      createdAt: 100n,
+    });
+
+    const mockEvent = USDC.Transfer.createMockEvent({
+      from: walletAddr,
+      to: receiverAddr,
+      amount: 300n,
+    });
+
+    const result = await USDC.Transfer.processEvent({
+      event: mockEvent,
+      mockDb: seededDb,
+    });
+
+    const wallet = result.entities.Wallet.get(walletAddr);
+    expect(wallet).toBeDefined();
+    expect(wallet!.balance).toBe(700n);
+  });
+});
+
+// ============================================================
+// Exchange Tests (Phase 2B)
+// ============================================================
+
+describe("Exchange - OrderFilled", () => {
+  it("should create an OrderFilledEvent and update Orderbook for a buy", async () => {
+    const mockDb = MockDb.createMockDb();
+
+    const mockEvent = Exchange.OrderFilled.createMockEvent({
+      orderHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      maker: Addresses.mockAddresses[0]!,
+      taker: Addresses.mockAddresses[1]!,
+      makerAssetId: 0n, // Buy side
+      takerAssetId: 42n,
+      makerAmountFilled: 1_000_000n,
+      takerAmountFilled: 500_000n,
+      fee: 10_000n,
+    });
+
+    const result = await Exchange.OrderFilled.processEvent({
+      event: mockEvent,
+      mockDb,
+    });
+
+    // Check OrderFilledEvent was created
+    const events = result.entities.OrderFilledEvent.getAll();
+    expect(events.length).toBe(1);
+    expect(events[0]!.makerAmountFilled).toBe(1_000_000n);
+
+    // Check Orderbook was created/updated
+    const orderbook = result.entities.Orderbook.get("42");
+    expect(orderbook).toBeDefined();
+    expect(orderbook!.tradesQuantity).toBe(1n);
+    expect(orderbook!.buysQuantity).toBe(1n);
+    expect(orderbook!.sellsQuantity).toBe(0n);
+    expect(orderbook!.collateralVolume).toBe(1_000_000n);
+    expect(orderbook!.collateralBuyVolume).toBe(1_000_000n);
+  });
+
+  it("should update Orderbook for a sell", async () => {
+    const mockDb = MockDb.createMockDb();
+
+    const mockEvent = Exchange.OrderFilled.createMockEvent({
+      orderHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      maker: Addresses.mockAddresses[0]!,
+      taker: Addresses.mockAddresses[1]!,
+      makerAssetId: 42n, // Sell side (non-zero)
+      takerAssetId: 0n,
+      makerAmountFilled: 500_000n,
+      takerAmountFilled: 1_000_000n,
+      fee: 10_000n,
+    });
+
+    const result = await Exchange.OrderFilled.processEvent({
+      event: mockEvent,
+      mockDb,
+    });
+
+    const orderbook = result.entities.Orderbook.get("42");
+    expect(orderbook).toBeDefined();
+    expect(orderbook!.sellsQuantity).toBe(1n);
+    expect(orderbook!.buysQuantity).toBe(0n);
+    expect(orderbook!.collateralSellVolume).toBe(1_000_000n);
+  });
+});
+
+describe("Exchange - OrdersMatched", () => {
+  it("should create OrdersMatchedEvent and update global volume", async () => {
+    const mockDb = MockDb.createMockDb();
+
+    const mockEvent = Exchange.OrdersMatched.createMockEvent({
+      takerOrderHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      takerOrderMaker: Addresses.mockAddresses[0]!,
+      makerAssetId: 0n,
+      takerAssetId: 42n,
+      makerAmountFilled: 1_000_000n,
+      takerAmountFilled: 500_000n,
+    });
+
+    const result = await Exchange.OrdersMatched.processEvent({
+      event: mockEvent,
+      mockDb,
+    });
+
+    const events = result.entities.OrdersMatchedEvent.getAll();
+    expect(events.length).toBe(1);
+
+    const global = result.entities.OrdersMatchedGlobal.get("");
+    expect(global).toBeDefined();
+    expect(global!.tradesQuantity).toBe(1n);
+  });
+});
+
+describe("Exchange - TokenRegistered", () => {
+  it("should create MarketData entities for both tokens", async () => {
+    const mockDb = MockDb.createMockDb();
+
+    const mockEvent = Exchange.TokenRegistered.createMockEvent({
+      token0: 100n,
+      token1: 101n,
+      conditionId: "0x0000000000000000000000000000000000000000000000000000000000003333",
+    });
+
+    const result = await Exchange.TokenRegistered.processEvent({
+      event: mockEvent,
+      mockDb,
+    });
+
+    const data0 = result.entities.MarketData.get("100");
+    expect(data0).toBeDefined();
+    expect(data0!.condition).toBe("0x0000000000000000000000000000000000000000000000000000000000003333");
+
+    const data1 = result.entities.MarketData.get("101");
+    expect(data1).toBeDefined();
+    expect(data1!.condition).toBe("0x0000000000000000000000000000000000000000000000000000000000003333");
   });
 });

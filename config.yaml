@@ -25,6 +25,30 @@ contracts:
       - event: "MarketResolved(bytes32 indexed marketId, uint256[] payouts)"
       - event: "MarketEmergencyResolved(bytes32 indexed marketId, uint256[] payouts)"
 
+  # Phase 2A: Wallet
+  - name: RelayHub
+    abi_file_path: ./abis/RelayHub.json
+    events:
+      - event: "TransactionRelayed(address indexed relay, address indexed from, address indexed to, bytes4 selector, uint8 status, uint256 charge)"
+
+  - name: SafeProxyFactory
+    abi_file_path: ./abis/SafeProxyFactory.json
+    events:
+      - event: "ProxyCreation(address proxy, address owner)"
+
+  - name: USDC
+    abi_file_path: ./abis/ERC20.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 amount)"
+
+  # Phase 2B: Orderbook
+  - name: Exchange
+    abi_file_path: ./abis/Exchange.json
+    events:
+      - event: "OrderFilled(bytes32 indexed orderHash, address indexed maker, address indexed taker, uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled, uint256 takerAmountFilled, uint256 fee)"
+      - event: "OrdersMatched(bytes32 indexed takerOrderHash, address indexed takerOrderMaker, uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled, uint256 takerAmountFilled)"
+      - event: "TokenRegistered(uint256 indexed token0, uint256 indexed token1, bytes32 indexed conditionId)"
+
 field_selection:
   transaction_fields:
     - hash
@@ -33,7 +57,7 @@ field_selection:
 
 chains:
   - id: 137 # Polygon
-    start_block: 68931384
+    start_block: 3764531
     contracts:
       # Phase 1A: Fee Module (both FeeModule + NegRiskFeeModule share same ABI)
       - name: FeeModule
@@ -46,3 +70,21 @@ chains:
       - name: UmaSportsOracle
         address: "0xb21182d0494521Cf45DbbeEbb5A3ACAAb6d22093"
         start_block: 68931384
+
+      # Phase 2A: Wallet
+      - name: RelayHub
+        address: "0xD216153c06E857cD7f72665E0aF1d7D82172F494"
+        start_block: 3764531
+      - name: SafeProxyFactory
+        address: "0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b"
+        start_block: 19426226
+      - name: USDC
+        address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+        start_block: 5013591
+
+      # Phase 2B: Orderbook (Exchange + NegRiskExchange share same ABI)
+      - name: Exchange
+        address:
+          - "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"
+          - "0xC5d563A36AE78145C45a50134d48A1215220f80a"
+        start_block: 33605403
