@@ -939,3 +939,52 @@ describe("PnL - UserPosition averaging", () => {
     expect(pos!.realizedPnl).toBe(300_000n);
   });
 });
+
+// ============================================================
+// Integration: OrdersMatchedGlobal numeric overflow regression
+// ============================================================
+
+describe("Integration - OrdersMatchedGlobal no numeric overflow", () => {
+  it("should accumulate large volumes without overflow (HyperSync)", async () => {
+    const { createTestIndexer } = await import("generated");
+    const indexer = createTestIndexer();
+
+    // Process a range around block 35.9M where Exchange was active
+    // This is near where the overflow originally occurred
+    const result = await indexer.process({
+      chains: {
+        137: { startBlock: 35_900_000, endBlock: 35_905_000 },
+      },
+    });
+
+    // Verify OrdersMatchedGlobal was created and volumes are bigint (not NaN/Infinity)
+    const global = await indexer.OrdersMatchedGlobal.get("");
+    expect(global).toBeDefined();
+    if (global) {
+      // collateralVolume should be a bigint, not a number
+      expect(typeof global.collateralVolume).toBe("bigint");
+      expect(typeof global.collateralBuyVolume).toBe("bigint");
+      expect(typeof global.collateralSellVolume).toBe("bigint");
+      // Scaled variants should be finite (BigDecimal may come back as number or string)
+      const scaledVol = Number(global.scaledCollateralVolume);
+      expect(Number.isFinite(scaledVol)).toBe(true);
+      expect(scaledVol).toBeGreaterThanOrEqual(0);
+      // Volume should be positive
+      expect(global.collateralVolume).toBeGreaterThan(0n);
+      expect(global.tradesQuantity).toBeGreaterThan(0n);
+    }
+
+    // Also verify Orderbook entities don't overflow
+    const changes = result.changes.filter(
+      (c: any) => c.Orderbook?.sets?.length > 0,
+    );
+    for (const change of changes) {
+      for (const ob of change.Orderbook?.sets ?? []) {
+        expect(typeof ob.collateralVolume).toBe("bigint");
+        // BigDecimal comes back as string in changes; verify it's a valid number
+        const scaled = Number(ob.scaledCollateralVolume);
+        expect(Number.isFinite(scaled)).toBe(true);
+      }
+    }
+  }, 120_000); // 2 minute timeout for HyperSync
+});
