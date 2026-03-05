@@ -258,7 +258,7 @@ FixedProductMarketMaker.FPMMFundingAdded.handler(async ({ event, context }) => {
 
   // Record funding addition
   context.FpmmFundingAddition.set({
-    id: event.transaction.hash,
+    id: getEventKey(event.chainId, event.block.number, event.logIndex),
     timestamp: BigInt(event.block.timestamp),
     fpmm_id: fpmmAddress,
     funder: event.params.funder,
@@ -282,6 +282,7 @@ FixedProductMarketMaker.FPMMFundingAdded.handler(async ({ event, context }) => {
   const sendbackAmount =
     (amountsAdded[1 - outcomeIndex] ?? 0n) - (amountsAdded[outcomeIndex] ?? 0n);
 
+  let tokenCost = 0n;
   if (sendbackAmount > 0n) {
     const sendbackPrice = computeFpmmPrice(amountsAdded, outcomeIndex);
     const positionId = condition.positionIds[outcomeIndex];
@@ -294,26 +295,24 @@ FixedProductMarketMaker.FPMMFundingAdded.handler(async ({ event, context }) => {
         sendbackAmount,
       );
     }
+    tokenCost = (sendbackAmount * sendbackPrice) / COLLATERAL_SCALE;
+  }
 
-    // Buy LP shares with remaining USDC
-    if (event.params.sharesMinted > 0n) {
-      const totalUSDCSpend = maxBigInt(amountsAdded);
-      const tokenCost =
-        (sendbackAmount * sendbackPrice) / COLLATERAL_SCALE;
-      const lpShareCost = totalUSDCSpend - tokenCost;
-      const lpSharePrice =
-        (lpShareCost * COLLATERAL_SCALE) / event.params.sharesMinted;
+  // Buy LP shares (always tracked, even for balanced additions)
+  if (event.params.sharesMinted > 0n) {
+    const totalUSDCSpend = maxBigInt(amountsAdded);
+    const lpShareCost = totalUSDCSpend - tokenCost;
+    const lpSharePrice =
+      (lpShareCost * COLLATERAL_SCALE) / event.params.sharesMinted;
 
-      // Use FPMM address as BigInt for LP token ID
-      const fpmmAsBigInt = BigInt(fpmmAddress);
-      await updateUserPositionWithBuy(
-        context,
-        event.params.funder,
-        fpmmAsBigInt,
-        lpSharePrice,
-        event.params.sharesMinted,
-      );
-    }
+    const fpmmAsBigInt = BigInt(fpmmAddress);
+    await updateUserPositionWithBuy(
+      context,
+      event.params.funder,
+      fpmmAsBigInt,
+      lpSharePrice,
+      event.params.sharesMinted,
+    );
   }
 });
 
@@ -359,7 +358,7 @@ FixedProductMarketMaker.FPMMFundingRemoved.handler(
 
     // Record funding removal
     context.FpmmFundingRemoval.set({
-      id: event.transaction.hash,
+      id: getEventKey(event.chainId, event.block.number, event.logIndex),
       timestamp: BigInt(event.block.timestamp),
       fpmm_id: fpmmAddress,
       funder: event.params.funder,
