@@ -56,11 +56,11 @@ async function getOrCreateGlobal(
     tradesQuantity: 0n,
     buysQuantity: 0n,
     sellsQuantity: 0n,
-    collateralVolume: 0,
+    collateralVolume: 0n,
     scaledCollateralVolume: 0,
-    collateralBuyVolume: 0,
+    collateralBuyVolume: 0n,
     scaledCollateralBuyVolume: 0,
-    collateralSellVolume: 0,
+    collateralSellVolume: 0n,
     scaledCollateralSellVolume: 0,
   };
 }
@@ -175,30 +175,29 @@ Exchange.OrdersMatched.handler(async ({ event, context }) => {
 
   // Update global volume
   const global = await getOrCreateGlobal(context);
-  const sizeNum = Number(size) / COLLATERAL_SCALE_DEC;
-  const newVolume = global.collateralVolume + sizeNum;
+  const newVolume = global.collateralVolume + size;
 
   if (side === TRADE_TYPE_BUY) {
-    const newBuyVol = global.collateralBuyVolume + sizeNum;
+    const newBuyVol = global.collateralBuyVolume + size;
     context.OrdersMatchedGlobal.set({
       ...global,
       tradesQuantity: global.tradesQuantity + 1n,
       collateralVolume: newVolume,
-      scaledCollateralVolume: newVolume,
+      scaledCollateralVolume: scaleBigInt(newVolume),
       buysQuantity: global.buysQuantity + 1n,
       collateralBuyVolume: newBuyVol,
-      scaledCollateralBuyVolume: newBuyVol,
+      scaledCollateralBuyVolume: scaleBigInt(newBuyVol),
     });
   } else {
-    const newSellVol = global.collateralSellVolume + sizeNum;
+    const newSellVol = global.collateralSellVolume + size;
     context.OrdersMatchedGlobal.set({
       ...global,
       tradesQuantity: global.tradesQuantity + 1n,
       collateralVolume: newVolume,
-      scaledCollateralVolume: newVolume,
+      scaledCollateralVolume: scaleBigInt(newVolume),
       sellsQuantity: global.sellsQuantity + 1n,
       collateralSellVolume: newSellVol,
-      scaledCollateralSellVolume: newSellVol,
+      scaledCollateralSellVolume: scaleBigInt(newSellVol),
     });
   }
 });

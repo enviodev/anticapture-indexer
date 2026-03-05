@@ -105,11 +105,11 @@ type OrdersMatchedGlobal {
   tradesQuantity: BigInt!
   buysQuantity: BigInt!
   sellsQuantity: BigInt!
-  collateralVolume: BigDecimal!
+  collateralVolume: BigInt!
   scaledCollateralVolume: BigDecimal!
-  collateralBuyVolume: BigDecimal!
+  collateralBuyVolume: BigInt!
   scaledCollateralBuyVolume: BigDecimal!
-  collateralSellVolume: BigDecimal!
+  collateralSellVolume: BigInt!
   scaledCollateralSellVolume: BigDecimal!
 }
 
