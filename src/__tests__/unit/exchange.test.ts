@@ -243,6 +243,13 @@ describe("Exchange - TokenRegistered idempotency", () => {
       id: "100",
       condition: conditionA,
       outcomeIndex: undefined,
+      marketName: "",
+      marketSlug: "",
+      outcomes: "[]",
+      description: "",
+      image: "",
+      startDate: "",
+      endDate: "",
     });
 
     const mockEvent = Exchange.TokenRegistered.createMockEvent({

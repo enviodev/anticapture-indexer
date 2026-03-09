@@ -5,6 +5,7 @@ import {
   updateUserPositionWithSell,
 } from "../utils/pnl.js";
 import { COLLATERAL_SCALE } from "../utils/constants.js";
+import { getMarketMetadata } from "../effects/marketMetadata.js";
 
 const TRADE_TYPE_BUY = "Buy";
 const TRADE_TYPE_SELL = "Sell";
@@ -211,12 +212,29 @@ Exchange.TokenRegistered.handler(async ({ event, context }) => {
   const token1Str = event.params.token1.toString();
   const condition = event.params.conditionId;
 
+  // Fetch market metadata from Polymarket Gamma API (cached + rate-limited)
+  const metadata = await context.effect(getMarketMetadata, token0Str);
+  const marketName = metadata?.question ?? "";
+  const marketSlug = metadata?.slug ?? "";
+  const outcomes = metadata?.outcomes ?? "[]";
+  const description = metadata?.description ?? "";
+  const image = metadata?.image ?? "";
+  const startDate = metadata?.startDate ?? "";
+  const endDate = metadata?.endDate ?? "";
+
   const data0 = await context.MarketData.get(token0Str);
   if (!data0) {
     context.MarketData.set({
       id: token0Str,
       condition,
       outcomeIndex: undefined,
+      marketName,
+      marketSlug,
+      outcomes,
+      description,
+      image,
+      startDate,
+      endDate,
     });
   }
 
@@ -226,6 +244,13 @@ Exchange.TokenRegistered.handler(async ({ event, context }) => {
       id: token1Str,
       condition,
       outcomeIndex: undefined,
+      marketName,
+      marketSlug,
+      outcomes,
+      description,
+      image,
+      startDate,
+      endDate,
     });
   }
 });

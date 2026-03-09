@@ -62,6 +62,13 @@ type MarketData {
   id: ID!
   condition: String! @index
   outcomeIndex: BigInt
+  marketName: String!
+  marketSlug: String!
+  outcomes: String!
+  description: String!
+  image: String!
+  startDate: String!
+  endDate: String!
 }
 
 type OrderFilledEvent {
