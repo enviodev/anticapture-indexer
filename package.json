@@ -1,5 +1,5 @@
 {
-  "name": "./polymarket-indexer",
+  "name": "anticapture-indexer",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

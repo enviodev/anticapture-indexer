@@ -1,0 +1,12 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "nounId", "type": "uint256" },
+      { "indexed": false, "internalType": "address", "name": "winner", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "AuctionSettled",
+    "type": "event"
+  }
+]
