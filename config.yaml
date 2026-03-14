@@ -1,88 +1,74 @@
 # yaml-language-server: $schema=./node_modules/envio/evm.schema.json
-name: polymarket-indexer
-description: Unified Polymarket HyperIndex
+name: anticapture-indexer
+description: Anticapture Governance HyperIndex - converted from Ponder
 
 contracts:
-  # Phase 1A: Fee Module
-  - name: FeeModule
-    abi_file_path: ./abis/FeeModule.json
+  # ============================================================
+  # ERC20 Token contracts (Transfer + DelegateChanged + DelegateVotesChanged)
+  # Uses "value" param naming
+  # ============================================================
+  - name: ERC20Token
+    abi_file_path: ./abis/ERC20Token.json
     events:
-      - event: "FeeRefunded(bytes32 indexed orderHash, address indexed to, uint256 id, uint256 refund, uint256 indexed feeCharged)"
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
 
-  # Phase 1B: Sports Oracle
-  - name: UmaSportsOracle
-    abi_file_path: ./abis/UmaSportsOracle.json
-    events:
-      - event: "GameCreated(bytes32 indexed gameId, uint8 ordering, bytes ancillaryData, uint256 timestamp)"
-      - event: "GameSettled(bytes32 indexed gameId, uint256 indexed home, uint256 indexed away)"
-      - event: "GameEmergencySettled(bytes32 indexed gameId, uint256 indexed home, uint256 indexed away)"
-      - event: "GameCanceled(bytes32 indexed gameId)"
-      - event: "GamePaused(bytes32 indexed gameId)"
-      - event: "GameUnpaused(bytes32 indexed gameId)"
-      - event: "MarketCreated(bytes32 indexed marketId, bytes32 indexed gameId, bytes32 indexed conditionId, uint8 marketType, uint8 underdog, uint256 line)"
-      - event: "MarketPaused(bytes32 indexed marketId)"
-      - event: "MarketUnpaused(bytes32 indexed marketId)"
-      - event: "MarketResolved(bytes32 indexed marketId, uint256[] payouts)"
-      - event: "MarketEmergencyResolved(bytes32 indexed marketId, uint256[] payouts)"
-
-  # Phase 2A: Wallet
-  - name: RelayHub
-    abi_file_path: ./abis/RelayHub.json
-    events:
-      - event: "TransactionRelayed(address indexed relay, address indexed from, address indexed to, bytes4 selector, uint8 status, uint256 charge)"
-
-  - name: SafeProxyFactory
-    abi_file_path: ./abis/SafeProxyFactory.json
-    events:
-      - event: "ProxyCreation(address proxy, address owner)"
-
-  - name: USDC
-    abi_file_path: ./abis/ERC20.json
+  # ERC20 Token contracts that use "amount" param naming (UNI, COMP, GTC)
+  - name: ERC20TokenAmount
+    abi_file_path: ./abis/ERC20TokenAmount.json
     events:
       - event: "Transfer(address indexed from, address indexed to, uint256 amount)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
 
-  # Phase 2B: Orderbook
-  - name: Exchange
-    abi_file_path: ./abis/Exchange.json
+  # ERC721 Token contracts (Nouns)
+  - name: ERC721Token
+    abi_file_path: ./abis/ERC721Token.json
     events:
-      - event: "OrderFilled(bytes32 indexed orderHash, address indexed maker, address indexed taker, uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled, uint256 takerAmountFilled, uint256 fee)"
-      - event: "OrdersMatched(bytes32 indexed takerOrderHash, address indexed takerOrderMaker, uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled, uint256 takerAmountFilled)"
-      - event: "TokenRegistered(uint256 indexed token0, uint256 indexed token1, bytes32 indexed conditionId)"
+      - event: "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
 
-  # Phase 3: Open Interest + Activity (extended in Phase 4 with PnL)
-  - name: ConditionalTokens
-    abi_file_path: ./abis/ConditionalTokens.json
+  # ============================================================
+  # Governor contracts (startBlock/endBlock naming)
+  # ============================================================
+  - name: Governor
+    abi_file_path: ./abis/Governor.json
     events:
-      - event: "ConditionPreparation(bytes32 indexed conditionId, address indexed oracle, bytes32 indexed questionId, uint256 outcomeSlotCount)"
-      - event: "ConditionResolution(bytes32 indexed conditionId, address indexed oracle, bytes32 indexed questionId, uint256 outcomeSlotCount, uint256[] payoutNumerators)"
-      - event: "PositionSplit(address indexed stakeholder, address collateralToken, bytes32 indexed parentCollectionId, bytes32 indexed conditionId, uint256[] partition, uint256 amount)"
-      - event: "PositionsMerge(address indexed stakeholder, address collateralToken, bytes32 indexed parentCollectionId, bytes32 indexed conditionId, uint256[] partition, uint256 amount)"
-      - event: "PayoutRedemption(address indexed redeemer, address indexed collateralToken, bytes32 indexed parentCollectionId, bytes32 conditionId, uint256[] indexSets, uint256 payout)"
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+      - event: "ProposalExtended(uint256 proposalId, uint64 extendedDeadline)"
 
-  - name: NegRiskAdapter
-    abi_file_path: ./abis/NegRiskAdapter.json
+  # Governor contracts (voteStart/voteEnd naming - COMP, SCR, OBOL, ZK)
+  - name: GovernorVoteStart
+    abi_file_path: ./abis/GovernorVoteStart.json
     events:
-      - event: "MarketPrepared(bytes32 indexed marketId, address indexed oracle, uint256 feeBips, bytes data)"
-      - event: "QuestionPrepared(bytes32 indexed marketId, bytes32 indexed questionId, uint256 index, bytes data)"
-      - event: "PositionSplit(address indexed stakeholder, bytes32 indexed conditionId, uint256 amount)"
-      - event: "PositionsMerge(address indexed stakeholder, bytes32 indexed conditionId, uint256 amount)"
-      - event: "PayoutRedemption(address indexed redeemer, bytes32 indexed conditionId, uint256[] amounts, uint256 payout)"
-      - event: "PositionsConverted(address indexed stakeholder, bytes32 indexed marketId, uint256 indexed indexSet, uint256 amount)"
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 etaSeconds)"
+      - event: "ProposalExtended(uint256 proposalId, uint64 extendedDeadline)"
 
-  - name: FPMMFactory
-    abi_file_path: ./abis/FixedProductMarketMakerFactory.json
+  # Nouns Governor (legacy: bool support, votes instead of weight, id instead of proposalId)
+  - name: NounsGovernor
+    abi_file_path: ./abis/NounsGovernor.json
     events:
-      - event: "FixedProductMarketMakerCreation(address indexed creator, address fixedProductMarketMaker, address indexed conditionalTokens, address indexed collateralToken, bytes32[] conditionIds, uint256 fee)"
+      - event: "VoteCast(address indexed voter, uint256 proposalId, bool support, uint256 votes, string reason)"
+      - event: "ProposalCreated(uint256 id, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+      - event: "ProposalCanceled(uint256 id)"
+      - event: "ProposalExecuted(uint256 id)"
+      - event: "ProposalQueued(uint256 id, uint256 eta)"
 
-  # Phase 4: Dynamic FPMM contracts (registered via FPMMFactory contractRegister)
-  - name: FixedProductMarketMaker
-    abi_file_path: ./abis/FixedProductMarketMaker.json
+  # Nouns Auction
+  - name: NounsAuction
+    abi_file_path: ./abis/NounsAuction.json
     events:
-      - event: "FPMMBuy(address indexed buyer, uint256 investmentAmount, uint256 feeAmount, uint256 indexed outcomeIndex, uint256 outcomeTokensBought)"
-      - event: "FPMMSell(address indexed seller, uint256 returnAmount, uint256 feeAmount, uint256 indexed outcomeIndex, uint256 outcomeTokensSold)"
-      - event: "FPMMFundingAdded(address indexed funder, uint256[] amountsAdded, uint256 sharesMinted)"
-      - event: "FPMMFundingRemoved(address indexed funder, uint256[] amountsRemoved, uint256 collateralRemovedFromFeePool, uint256 sharesBurnt)"
-      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "AuctionSettled(uint256 indexed nounId, address winner, uint256 amount)"
 
 field_selection:
   transaction_fields:
@@ -90,50 +76,131 @@ field_selection:
     - from
     - to
 
+# ============================================================
+# Chain configurations
+# ============================================================
 chains:
-  - id: 137 # Polygon
-    start_block: 3764531
+  # ============================================================
+  # Ethereum Mainnet (chain 1)
+  # ENS, UNI, GTC, NOUNS, COMP, OBOL tokens + governors
+  # ============================================================
+  - id: 1
+    start_block: 9380410
     contracts:
-      # Phase 1A: Fee Module (both FeeModule + NegRiskFeeModule share same ABI)
-      - name: FeeModule
+      # --- ENS Token ---
+      - name: ERC20Token
+        address: "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72"
+        start_block: 9380410
+      # --- ENS Governor ---
+      - name: Governor
+        address: "0x323a76393544d5ecca80cd6ef2a560c6a395b7e3"
+        start_block: 13533772
+
+      # --- UNI Token (uses "amount" naming) ---
+      - name: ERC20TokenAmount
         address:
-          - "0xE3f18aCc55091e2c48d883fc8C8413319d4Ab7b0"
-          - "0xB768891e3130F6dF18214Ac804d4DB76c2C37730"
-        start_block: 75253526
+          # UNI Token
+          - "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+          # COMP Token
+          - "0xc00e94Cb662C3520282E6f5717214004A7f26888"
+          # GTC Token
+          - "0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F"
+        start_block: 9601359
 
-      # Phase 1B: Sports Oracle
-      - name: UmaSportsOracle
-        address: "0xb21182d0494521Cf45DbbeEbb5A3ACAAb6d22093"
-        start_block: 68931384
-
-      # Phase 2A: Wallet
-      - name: RelayHub
-        address: "0xD216153c06E857cD7f72665E0aF1d7D82172F494"
-        start_block: 3764531
-      - name: SafeProxyFactory
-        address: "0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b"
-        start_block: 19426226
-      - name: USDC
-        address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
-        start_block: 5013591
-
-      # Phase 2B: Orderbook (Exchange + NegRiskExchange share same ABI)
-      - name: Exchange
+      # --- UNI Governor ---
+      - name: Governor
         address:
-          - "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"
-          - "0xC5d563A36AE78145C45a50134d48A1215220f80a"
-        start_block: 33605403
+          # UNI Governor
+          - "0x408ED6354d4973f66138C91495F2f2FCbd8724C3"
+          # GTC Governor
+          - "0x9D4C63565D5618310271bF3F3c01b2954C1D1639"
+        start_block: 13059157
 
-      # Phase 3: Open Interest + Activity
-      - name: ConditionalTokens
-        address: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
-        start_block: 4023686
-      - name: NegRiskAdapter
-        address: "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296"
-        start_block: 50505403
-      - name: FPMMFactory
-        address: "0x8B9805A2f595B6705e74F7310829f2d299D21522"
-        start_block: 4023693
+      # --- COMP Governor (voteStart/voteEnd naming) ---
+      - name: GovernorVoteStart
+        address:
+          # COMP Governor
+          - "0x309a862bbC1A00e45506cB8A802D1ff10004c8C0"
+          # OBOL Governor
+          - "0xcB1622185A0c62A80494bEde05Ba95ef29Fbf85c"
+        start_block: 21688680
 
-      # Phase 4: Dynamic — no address, registered at runtime
-      - name: FixedProductMarketMaker
+      # --- NOUNS Token (ERC721) ---
+      - name: ERC721Token
+        address: "0x9C8fF314C9Bc7F6e59A9d9225Fb22946427eDC03"
+        start_block: 12985438
+
+      # --- NOUNS Governor ---
+      - name: NounsGovernor
+        address: "0x6f3e6272a167e8accb32072d08e0957f9c79223d"
+        start_block: 12985453
+
+      # --- NOUNS Auction ---
+      - name: NounsAuction
+        address: "0x830BD73E4184ceF73443C15111a1DF14e495C706"
+        start_block: 12985451
+
+      # --- OBOL Token ---
+      - name: ERC20Token
+        address: "0x0B010000b7624eb9B3DfBC279673C76E9D29D5F7"
+        start_block: 15570746
+
+  # ============================================================
+  # Optimism (chain 10)
+  # OP Token + Governor
+  # ============================================================
+  - id: 10
+    start_block: 6490467
+    contracts:
+      # --- OP Token ---
+      - name: ERC20Token
+        address: "0x4200000000000000000000000000000000000042"
+        start_block: 6490467
+      # --- OP Governor ---
+      - name: Governor
+        address: "0xcDF27F107725988f2261Ce2256bDfCdE8B382B10"
+        start_block: 71801427
+
+  # ============================================================
+  # Arbitrum (chain 42161)
+  # ARB Token (no governor, no delegation)
+  # ============================================================
+  - id: 42161
+    start_block: 70398200
+    contracts:
+      # --- ARB Token ---
+      - name: ERC20Token
+        address: "0x912CE59144191C1204E64559FE8253a0e49E6548"
+        start_block: 70398200
+
+  # ============================================================
+  # Scroll (chain 534352)
+  # SCR Token + Governor
+  # ============================================================
+  - id: 534352
+    start_block: 8949006
+    contracts:
+      # --- SCR Token ---
+      - name: ERC20Token
+        address: "0xd29687c813D741E2F938F4aC377128810E217b1b"
+        start_block: 8949006
+      # --- SCR Governor ---
+      - name: GovernorVoteStart
+        address: "0x2f3f2054776bd3c2fc30d750734a8f539bb214f0"
+        start_block: 8963441
+
+  # ============================================================
+  # zkSync Era (chain 324)
+  # ZK Token + Governor
+  # ============================================================
+  - id: 324
+    start_block: 34572100
+    contracts:
+      # --- ZK Token ---
+      - name: ERC20Token
+        address: "0x5A7d6b2F92C77FAD6CCaBd7EE0624E64907Eaf3E"
+        start_block: 34572100
+      # --- ZK Governor ---
+      - name: GovernorVoteStart
+        address: "0xb83FF6501214ddF40C91C9565d095400f3F45746"
+        start_block: 55519658

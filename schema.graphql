@@ -1,309 +1,194 @@
 ## ============================================================
-## Phase 1A: Fee Module
+## Anticapture Governance Indexer - Envio HyperIndex
+## Converted from Ponder indexer at github.com/blockful-io/anticapture
 ## ============================================================
 
-type FeeRefunded @index(fields: ["refundee", ["timestamp", "DESC"]]) {
-  id: ID!
-  orderHash: String! @index
-  tokenId: String! @index
-  timestamp: BigInt! @index
-  refundee: String! @index
-  feeRefunded: BigInt!
-  feeCharged: BigInt!
-  negRisk: Boolean!
-}
-
 ## ============================================================
-## Phase 1B: Sports Oracle
+## Core Token & Account Entities
 ## ============================================================
 
-type Game {
-  id: ID!
-  ancillaryData: String!
-  ordering: String!
-  state: String! @index
-  homeScore: BigInt!
-  awayScore: BigInt!
-}
-
-type Market {
-  id: ID!
-  gameId: String! @index
-  state: String! @index
-  marketType: String!
-  underdog: String!
-  line: BigInt!
-  payouts: [BigInt!]!
-}
-
-## ============================================================
-## Phase 2A: Wallet
-## ============================================================
-
-type Wallet {
-  id: ID!
-  signer: String! @index
-  type: String!
-  balance: BigInt!
-  lastTransfer: BigInt!
-  createdAt: BigInt!
-}
-
-type GlobalUSDCBalance {
-  id: ID!
-  balance: BigInt!
-}
-
-## ============================================================
-## Phase 2B: Orderbook
-## ============================================================
-
-type MarketData {
-  id: ID!
-  condition: String! @index
-  outcomeIndex: BigInt
-  marketName: String!
-  marketSlug: String! @index
-  outcomes: String!
-  description: String!
-  image: String!
-  startDate: String!
-  endDate: String!
-}
-
-type OrderFilledEvent
-  @index(fields: ["maker", ["timestamp", "DESC"]])
-  @index(fields: ["makerAssetId", ["timestamp", "DESC"]]) {
-  id: ID!
-  transactionHash: String!
-  timestamp: BigInt! @index
-  orderHash: String! @index
-  maker: String! @index
-  taker: String! @index
-  makerAssetId: String! @index
-  takerAssetId: String! @index
-  makerAmountFilled: BigInt!
-  takerAmountFilled: BigInt!
-  fee: BigInt!
-}
-
-type OrdersMatchedEvent {
-  id: ID!
-  timestamp: BigInt! @index
-  makerAssetID: BigInt!
-  takerAssetID: BigInt!
-  makerAmountFilled: BigInt!
-  takerAmountFilled: BigInt!
-}
-
-type Orderbook {
-  id: ID!
-  tradesQuantity: BigInt!
-  buysQuantity: BigInt!
-  sellsQuantity: BigInt!
-  collateralVolume: BigInt!
-  scaledCollateralVolume: BigDecimal!
-  collateralBuyVolume: BigInt!
-  scaledCollateralBuyVolume: BigDecimal!
-  collateralSellVolume: BigInt!
-  scaledCollateralSellVolume: BigDecimal!
-}
-
-type OrdersMatchedGlobal {
-  id: ID!
-  tradesQuantity: BigInt!
-  buysQuantity: BigInt!
-  sellsQuantity: BigInt!
-  collateralVolume: BigInt!
-  scaledCollateralVolume: BigDecimal!
-  collateralBuyVolume: BigInt!
-  scaledCollateralBuyVolume: BigDecimal!
-  collateralSellVolume: BigInt!
-  scaledCollateralSellVolume: BigDecimal!
-}
-
-## ============================================================
-## Phase 3A: Open Interest
-## ============================================================
-
-type Condition {
-  id: ID!
-  positionIds: [BigInt!]!
-  payoutNumerators: [BigInt!]!
-  payoutDenominator: BigInt!
-}
-
-type NegRiskEvent {
-  id: ID!
-  feeBps: BigInt!
-  questionCount: BigInt!
-}
-
-type MarketOpenInterest {
-  id: ID!
-  amount: BigInt!
-}
-
-type GlobalOpenInterest {
-  id: ID!
-  amount: BigInt!
-}
-
-## ============================================================
-## Phase 3B: Activity
-## ============================================================
-
-type Split
-  @index(fields: ["stakeholder", ["timestamp", "DESC"]])
-  @index(fields: ["condition", ["timestamp", "DESC"]]) {
-  id: ID!
-  timestamp: BigInt! @index
-  stakeholder: String! @index
-  condition: String! @index
-  amount: BigInt!
-}
-
-type Merge
-  @index(fields: ["stakeholder", ["timestamp", "DESC"]])
-  @index(fields: ["condition", ["timestamp", "DESC"]]) {
-  id: ID!
-  timestamp: BigInt! @index
-  stakeholder: String! @index
-  condition: String! @index
-  amount: BigInt!
-}
-
-type Redemption
-  @index(fields: ["redeemer", ["timestamp", "DESC"]])
-  @index(fields: ["condition", ["timestamp", "DESC"]]) {
-  id: ID!
-  timestamp: BigInt! @index
-  redeemer: String! @index
-  condition: String! @index
-  indexSets: [BigInt!]!
-  payout: BigInt!
-}
-
-type NegRiskConversion
-  @index(fields: ["stakeholder", ["timestamp", "DESC"]])
-  @index(fields: ["negRiskMarketId", ["timestamp", "DESC"]]) {
-  id: ID!
-  timestamp: BigInt! @index
-  stakeholder: String! @index
-  negRiskMarketId: String! @index
-  amount: BigInt!
-  indexSet: BigInt!
-  questionCount: BigInt!
-}
-
-type Position {
-  id: ID!
-  condition: String! @index
-  outcomeIndex: BigInt!
-}
-
-type FixedProductMarketMaker {
-  id: ID!
-  creator: String! @index
-  creationTimestamp: BigInt!
-  creationTransactionHash: String!
-  collateralToken: String!
-  conditionalTokenAddress: String!
-  conditions: [String!]!
-  fee: BigInt!
-  tradesQuantity: BigInt!
-  buysQuantity: BigInt!
-  sellsQuantity: BigInt!
-  liquidityAddQuantity: BigInt!
-  liquidityRemoveQuantity: BigInt!
-  collateralVolume: BigInt!
-  scaledCollateralVolume: BigDecimal!
-  collateralBuyVolume: BigInt!
-  scaledCollateralBuyVolume: BigDecimal!
-  collateralSellVolume: BigInt!
-  scaledCollateralSellVolume: BigDecimal!
-  feeVolume: BigInt!
-  scaledFeeVolume: BigDecimal!
-  liquidityParameter: BigInt!
-  scaledLiquidityParameter: BigDecimal!
-  outcomeTokenAmounts: [BigInt!]!
-  outcomeTokenPrices: [BigDecimal!]!
-  outcomeSlotCount: BigInt
-  lastActiveDay: BigInt!
-  totalSupply: BigInt!
-}
-
-## ============================================================
-## Phase 4A: PnL
-## ============================================================
-
-type UserPosition @index(fields: ["user", "tokenId"]) {
-  id: ID!
-  user: String! @index
-  tokenId: BigInt! @index
-  amount: BigInt!
-  avgPrice: BigInt!
-  realizedPnl: BigInt!
-  totalBought: BigInt!
-}
-
-## ============================================================
-## Phase 4B: FPMM
-## ============================================================
-
-type Collateral {
+type Token @entity {
   id: ID!
   name: String!
-  symbol: String!
-  decimals: BigInt!
+  decimals: Int!
+  totalSupply: BigInt!
+  delegatedSupply: BigInt!
+  cexSupply: BigInt!
+  dexSupply: BigInt!
+  lendingSupply: BigInt!
+  circulatingSupply: BigInt!
+  treasury: BigInt!
 }
 
-enum TransactionType {
-  Buy
-  Sell
-}
-
-type FpmmTransaction
-  @index(fields: ["market_id", ["timestamp", "DESC"]])
-  @index(fields: ["user", ["timestamp", "DESC"]]) {
+type Account @entity {
   id: ID!
-  type: TransactionType!
+}
+
+type AccountBalance @entity {
+  id: ID! # accountId-tokenId
+  accountId: String! @index
+  tokenId: String! @index
+  balance: BigInt!
+  delegate: String! @index
+}
+
+type AccountPower @entity {
+  id: ID! # accountId
+  accountId: String!
+  daoId: String!
+  votingPower: BigInt!
+  votesCount: Int!
+  proposalsCount: Int!
+  delegationsCount: Int!
+  lastVoteTimestamp: BigInt! @index
+}
+
+## ============================================================
+## History Entities
+## ============================================================
+
+type VotingPowerHistory @entity {
+  id: ID! # transactionHash-accountId-logIndex
+  transactionHash: String!
+  daoId: String!
+  accountId: String!
+  votingPower: BigInt!
+  delta: BigInt!
+  deltaMod: BigInt!
+  timestamp: BigInt!
+  logIndex: Int!
+}
+
+type BalanceHistory @entity {
+  id: ID! # transactionHash-accountId-logIndex
+  transactionHash: String!
+  daoId: String!
+  accountId: String!
+  balance: BigInt!
+  delta: BigInt!
+  deltaMod: BigInt!
+  timestamp: BigInt!
+  logIndex: Int!
+}
+
+## ============================================================
+## Delegation & Transfer Entities
+## ============================================================
+
+type Delegation @entity {
+  id: ID! # transactionHash-delegatorAccountId-delegateAccountId
+  transactionHash: String! @index
+  daoId: String!
+  delegateAccountId: String! @index
+  delegatorAccountId: String! @index
+  delegatedValue: BigInt! @index
+  previousDelegate: String
   timestamp: BigInt! @index
-  market_id: String! @index
-  user: String! @index
-  tradeAmount: BigInt!
-  feeAmount: BigInt!
-  outcomeIndex: BigInt!
-  outcomeTokensAmount: BigInt!
+  logIndex: Int!
+  isCex: Boolean!
+  isDex: Boolean!
+  isLending: Boolean!
+  isTotal: Boolean!
 }
 
-type FpmmFundingAddition
-  @index(fields: ["fpmm_id", ["timestamp", "DESC"]])
-  @index(fields: ["funder", ["timestamp", "DESC"]]) {
-  id: ID!
+type Transfer @entity {
+  id: ID! # transactionHash-fromAccountId-toAccountId
+  transactionHash: String! @index
+  daoId: String!
+  tokenId: String!
+  amount: BigInt! @index
+  fromAccountId: String! @index
+  toAccountId: String! @index
   timestamp: BigInt! @index
-  fpmm_id: String! @index
-  funder: String! @index
-  amountsAdded: [BigInt!]!
-  amountsRefunded: [BigInt!]!
-  sharesMinted: BigInt!
+  logIndex: Int!
+  isCex: Boolean!
+  isDex: Boolean!
+  isLending: Boolean!
+  isTotal: Boolean!
 }
 
-type FpmmFundingRemoval
-  @index(fields: ["fpmm_id", ["timestamp", "DESC"]])
-  @index(fields: ["funder", ["timestamp", "DESC"]]) {
+## ============================================================
+## Governance Entities
+## ============================================================
+
+type VoteOnchain @entity {
+  id: ID! # voterAccountId-proposalId
+  txHash: String!
+  daoId: String!
+  voterAccountId: String!
+  proposalId: String!
+  support: String!
+  votingPower: BigInt!
+  reason: String
+  timestamp: BigInt!
+}
+
+type ProposalOnchain @entity {
   id: ID!
+  txHash: String!
+  daoId: String!
+  proposerAccountId: String! @index
+  targets: String! # JSON array serialized
+  values: String! # JSON array serialized
+  signatures: String! # JSON array serialized
+  calldatas: String! # JSON array serialized
+  startBlock: Int!
+  endBlock: Int!
+  title: String
+  description: String!
+  timestamp: BigInt!
+  endTimestamp: BigInt!
+  status: String!
+  forVotes: BigInt!
+  againstVotes: BigInt!
+  abstainVotes: BigInt!
+  proposalType: Int
+}
+
+## ============================================================
+## Metrics Entities
+## ============================================================
+
+type DaoMetricsDayBucket @entity {
+  id: ID! # date-tokenId-metricType
+  date: BigInt!
+  daoId: String!
+  tokenId: String!
+  metricType: String!
+  open: BigInt!
+  close: BigInt!
+  low: BigInt!
+  high: BigInt!
+  average: BigInt!
+  volume: BigInt!
+  count: Int!
+  lastUpdate: BigInt!
+}
+
+type Transaction @entity {
+  id: ID! # transactionHash
+  transactionHash: String!
+  fromAddress: String
+  toAddress: String
+  isCex: Boolean!
+  isDex: Boolean!
+  isLending: Boolean!
+  isTotal: Boolean!
+  timestamp: BigInt!
+}
+
+type TokenPrice @entity {
+  id: ID! # timestamp string
+  price: BigInt!
+  timestamp: BigInt!
+}
+
+type FeedEvent @entity {
+  id: ID! # txHash-logIndex
+  txHash: String!
+  logIndex: Int!
+  eventType: String! @index
+  value: BigInt!
   timestamp: BigInt! @index
-  fpmm_id: String! @index
-  funder: String! @index
-  amountsRemoved: [BigInt!]!
-  collateralRemoved: BigInt!
-  sharesBurnt: BigInt!
-}
-
-type FpmmPoolMembership {
-  id: ID!
-  pool_id: String! @index
-  funder: String! @index
-  amount: BigInt!
+  metadata: String # JSON stringified
 }
