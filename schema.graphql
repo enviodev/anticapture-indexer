@@ -1,0 +1,198 @@
+enum MetricType {
+  TOTAL_SUPPLY
+  DELEGATED_SUPPLY
+  CEX_SUPPLY
+  DEX_SUPPLY
+  LENDING_SUPPLY
+  CIRCULATING_SUPPLY
+  TREASURY
+  NON_CIRCULATING_SUPPLY
+}
+
+enum EventType {
+  VOTE
+  PROPOSAL
+  PROPOSAL_EXTENDED
+  DELEGATION
+  DELEGATION_VOTES_CHANGED
+  TRANSFER
+}
+
+type Token {
+  id: ID!
+  name: String
+  decimals: Int!
+  totalSupply: BigInt!
+  delegatedSupply: BigInt!
+  cexSupply: BigInt!
+  dexSupply: BigInt!
+  lendingSupply: BigInt!
+  circulatingSupply: BigInt!
+  treasury: BigInt!
+  nonCirculatingSupply: BigInt!
+}
+
+type Account {
+  id: ID!
+  balances: [AccountBalance!]! @derivedFrom(field: "account")
+  powers: [AccountPower!]! @derivedFrom(field: "account")
+  sentTransfers: [Transfer!]! @derivedFrom(field: "fromAccount")
+  receivedTransfers: [Transfer!]! @derivedFrom(field: "toAccount")
+  proposals: [ProposalsOnchain!]! @derivedFrom(field: "proposer")
+  votes: [VotesOnchain!]! @derivedFrom(field: "voter")
+  delegationsFrom: [Delegation!]! @derivedFrom(field: "delegatorAccount")
+  delegationsTo: [Delegation!]! @derivedFrom(field: "delegateAccount")
+}
+
+type AccountBalance @index(fields: ["delegate"]) {
+  id: ID!
+  account: Account!
+  token: Token!
+  balance: BigInt!
+  delegate: String!
+}
+
+type AccountPower @index(fields: ["lastVoteTimestamp"]) {
+  id: ID!
+  account: Account!
+  daoId: String!
+  votingPower: BigInt!
+  votesCount: Int!
+  proposalsCount: Int!
+  delegationsCount: Int!
+  lastVoteTimestamp: BigInt!
+}
+
+type VotingPowerHistory {
+  id: ID!
+  transactionHash: String!
+  daoId: String!
+  account: Account!
+  votingPower: BigInt!
+  delta: BigInt!
+  deltaMod: BigInt!
+  timestamp: BigInt!
+  logIndex: Int!
+}
+
+type BalanceHistory {
+  id: ID!
+  transactionHash: String!
+  daoId: String!
+  account: Account!
+  balance: BigInt!
+  delta: BigInt!
+  deltaMod: BigInt!
+  timestamp: BigInt!
+  logIndex: Int!
+}
+
+type Delegation @index(fields: ["timestamp"]) @index(fields: ["delegatedValue"]) {
+  id: ID!
+  transactionHash: String!
+  daoId: String!
+  delegateAccount: Account!
+  delegatorAccount: Account!
+  delegatedValue: BigInt!
+  previousDelegate: String
+  timestamp: BigInt!
+  logIndex: Int!
+  isCex: Boolean!
+  isDex: Boolean!
+  isLending: Boolean!
+  isTotal: Boolean!
+  type: Int
+}
+
+type Transfer @index(fields: ["timestamp"]) @index(fields: ["amount"]) {
+  id: ID!
+  transactionHash: String!
+  daoId: String!
+  token: Token!
+  amount: BigInt!
+  fromAccount: Account!
+  toAccount: Account!
+  timestamp: BigInt!
+  logIndex: Int!
+  isCex: Boolean!
+  isDex: Boolean!
+  isLending: Boolean!
+  isTotal: Boolean!
+}
+
+type VotesOnchain {
+  id: ID!
+  txHash: String!
+  daoId: String!
+  voter: Account!
+  proposal: ProposalsOnchain!
+  support: String!
+  votingPower: BigInt!
+  reason: String
+  timestamp: BigInt!
+}
+
+type ProposalsOnchain {
+  id: ID!
+  txHash: String!
+  daoId: String!
+  proposer: Account!
+  targets: Json!
+  values: Json!
+  signatures: Json!
+  calldatas: Json!
+  startBlock: Int!
+  endBlock: Int!
+  title: String!
+  description: String!
+  timestamp: BigInt!
+  logIndex: Int!
+  endTimestamp: BigInt!
+  status: String!
+  forVotes: BigInt!
+  againstVotes: BigInt!
+  abstainVotes: BigInt!
+  proposalType: Int
+  votes: [VotesOnchain!]! @derivedFrom(field: "proposal")
+}
+
+type DaoMetricsDayBucket {
+  id: ID!
+  date: BigInt!
+  daoId: String!
+  token: Token!
+  metricType: MetricType!
+  open: BigInt!
+  close: BigInt!
+  low: BigInt!
+  high: BigInt!
+  average: BigInt!
+  volume: BigInt!
+  count: Int!
+  lastUpdate: BigInt!
+}
+
+type Transaction {
+  id: ID!
+  fromAddress: String
+  toAddress: String
+  isCex: Boolean!
+  isDex: Boolean!
+  isLending: Boolean!
+  isTotal: Boolean!
+  timestamp: BigInt!
+}
+
+type TokenPrice {
+  id: ID!
+  price: BigInt!
+  timestamp: BigInt!
+}
+
+type FeedEvent @index(fields: ["timestamp"]) @index(fields: ["type"]) {
+  id: ID!
+  type: EventType!
+  value: BigInt!
+  timestamp: BigInt!
+  metadata: Json
+}

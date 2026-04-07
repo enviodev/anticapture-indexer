@@ -1,0 +1,397 @@
+name: anticapture-indexer
+description: Anticapture DAO Governance Indexer
+
+field_selection:
+  transaction_fields:
+    - hash
+    - from
+    - to
+
+contracts:
+  # === UNI (Ethereum) ===
+  - name: UNIToken
+    abi_file_path: ./abis/UNIToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 amount)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: UNIGovernor
+    abi_file_path: ./abis/UNIGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 votes, string reason)"
+      - event: "ProposalCreated(uint256 id, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+      - event: "ProposalCanceled(uint256 id)"
+      - event: "ProposalExecuted(uint256 id)"
+      - event: "ProposalQueued(uint256 id, uint256 eta)"
+
+  # === ENS (Ethereum) ===
+  - name: ENSToken
+    abi_file_path: ./abis/ENSToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: ENSGovernor
+    abi_file_path: ./abis/ENSGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === ARB (Arbitrum) ===
+  - name: ARBToken
+    abi_file_path: ./abis/ARBToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  # === OP (Optimism) ===
+  - name: OPToken
+    abi_file_path: ./abis/OPToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: OPGovernor
+    abi_file_path: ./abis/OPGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+        name: ProposalCreatedStandard
+      - event: "ProposalCreated(uint256 indexed proposalId, address indexed proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description, uint8 proposalType)"
+        name: ProposalCreatedWithType
+      - event: "ProposalCreated(uint256 indexed proposalId, address indexed proposer, address indexed votingModule, bytes proposalData, uint256 startBlock, uint256 endBlock, string description, uint8 proposalType)"
+        name: ProposalCreatedModuleWithType
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address votingModule, bytes proposalData, uint256 startBlock, uint256 endBlock, string description)"
+        name: ProposalCreatedModule
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === GTC (Ethereum) ===
+  - name: GTCToken
+    abi_file_path: ./abis/GTCToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 amount)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: GTCGovernor
+    abi_file_path: ./abis/GTCGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 votes, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === NOUNS (Ethereum) ===
+  - name: NounsToken
+    abi_file_path: ./abis/NounsToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+  - name: NounsGovernor
+    abi_file_path: ./abis/NounsGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 votes, string reason)"
+      - event: "ProposalCreated(uint256 indexed id, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+      - event: "ProposalCanceled(uint256 indexed id)"
+      - event: "ProposalExecuted(uint256 indexed id)"
+      - event: "ProposalQueued(uint256 indexed id, uint256 eta)"
+      - event: "ProposalVetoed(uint256 indexed id)"
+
+  - name: NounsAuction
+    abi_file_path: ./abis/NounsAuction.json
+    events:
+      - event: "AuctionSettled(uint256 indexed nounId, address winner, uint256 amount)"
+
+  # === LIL_NOUNS (Ethereum) ===
+  - name: LilNounsToken
+    abi_file_path: ./abis/LilNounsToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+  - name: LilNounsGovernor
+    abi_file_path: ./abis/LilNounsGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 votes, string reason)"
+      - event: "ProposalCreated(uint256 indexed id, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+      - event: "ProposalCanceled(uint256 indexed id)"
+      - event: "ProposalExecuted(uint256 indexed id)"
+      - event: "ProposalQueued(uint256 indexed id, uint256 eta)"
+      - event: "ProposalVetoed(uint256 indexed id)"
+
+  # === SCR (Scroll) ===
+  - name: SCRToken
+    abi_file_path: ./abis/SCRToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, (address,uint96)[] oldDelegatees, (address,uint96)[] newDelegatees)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousVotes, uint256 newVotes)"
+
+  - name: SCRGovernor
+    abi_file_path: ./abis/SCRGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description)"
+        name: ProposalCreatedStandard
+      - event: "ProposalCreated(uint256 indexed proposalId, address indexed proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 startBlock, uint256 endBlock, string description, uint8 proposalType)"
+        name: ProposalCreatedWithType
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === COMP (Ethereum) ===
+  - name: COMPToken
+    abi_file_path: ./abis/COMPToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 amount)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: COMPGovernor
+    abi_file_path: ./abis/COMPGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
+      - event: "ProposalExtended(uint256 indexed proposalId, uint64 extendedDeadline)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === OBOL (Ethereum) ===
+  - name: ObolToken
+    abi_file_path: ./abis/ObolToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: ObolGovernor
+    abi_file_path: ./abis/ObolGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === ZK (zkSync) ===
+  - name: ZKToken
+    abi_file_path: ./abis/ZKToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: ZKGovernor
+    abi_file_path: ./abis/ZKGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === SHU (Ethereum) ===
+  - name: SHUToken
+    abi_file_path: ./abis/SHUToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: Azorius
+    abi_file_path: ./abis/Azorius.json
+    events:
+      - event: "ProposalCreated(address strategy, uint256 proposalId, address proposer, (address,uint256,bytes,uint8)[] transactions, string metadata)"
+      - event: "ProposalExecuted(uint32 proposalId)"
+        name: AzoriusProposalExecuted
+
+  - name: LinearVotingStrategy
+    abi_file_path: ./abis/LinearVotingStrategy.json
+    events:
+      - event: "ProposalInitialized(uint32 proposalId, uint32 votingEndBlock)"
+      - event: "Voted(address voter, uint32 proposalId, uint8 voteType, uint256 weight)"
+
+  # === FLUID (Ethereum) ===
+  - name: FLUIDToken
+    abi_file_path: ./abis/FLUIDToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 amount)"
+      - event: "DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)"
+      - event: "DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)"
+
+  - name: FLUIDGovernor
+    abi_file_path: ./abis/FLUIDGovernor.json
+    events:
+      - event: "VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+      - event: "ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
+      - event: "ProposalExtended(uint256 indexed proposalId, uint64 extendedDeadline)"
+      - event: "ProposalCanceled(uint256 proposalId)"
+      - event: "ProposalExecuted(uint256 proposalId)"
+      - event: "ProposalQueued(uint256 proposalId, uint256 eta)"
+
+  # === AAVE (Ethereum) ===
+  - name: AaveToken
+    abi_file_path: ./abis/AaveToken.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+
+  - name: StkAave
+    abi_file_path: ./abis/StkAave.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+
+  - name: AAave
+    abi_file_path: ./abis/AAave.json
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+
+  - name: AaveV3
+    abi_file_path: ./abis/AaveV3.json
+    events:
+      - event: "DelegateChanged(address indexed delegator, address indexed delegatee, uint8 delegationType)"
+
+chains:
+  # === Ethereum Mainnet ===
+  - id: 1
+    start_block: 0
+    contracts:
+      # ENS
+      - name: ENSToken
+        address: "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72"
+        start_block: 9380410
+      - name: ENSGovernor
+        address: "0x323a76393544d5ecca80cd6ef2a560c6a395b7e3"
+        start_block: 13533772
+      # UNI
+      - name: UNIToken
+        address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+        start_block: 10861674
+      - name: UNIGovernor
+        address: "0x408ED6354d4973f66138C91495F2f2FCbd8724C3"
+        start_block: 13059157
+      # GTC
+      - name: GTCToken
+        address: "0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F"
+        start_block: 12422079
+      - name: GTCGovernor
+        address:
+          - "0x9D4C63565D5618310271bF3F3c01b2954C1D1639"
+          - "0xDbD27635A534A3d3169Ef0498beB56Fb9c937489"
+        start_block: 12497481
+      # NOUNS
+      - name: NounsToken
+        address: "0x9C8fF314C9Bc7F6e59A9d9225Fb22946427eDC03"
+        start_block: 12985438
+      - name: NounsGovernor
+        address: "0x6f3e6272a167e8accb32072d08e0957f9c79223d"
+        start_block: 12985453
+      - name: NounsAuction
+        address: "0x830BD73E4184ceF73443C15111a1DF14e495C706"
+        start_block: 12985451
+      # LIL_NOUNS
+      - name: LilNounsToken
+        address: "0x4b10701Bfd7BFEdc47d50562b76b436fbB5BdB3B"
+        start_block: 14736710
+      - name: LilNounsGovernor
+        address: "0x5d2C31ce16924C2a71D317e5BbFd5ce387854039"
+        start_block: 14736719
+      # COMP
+      - name: COMPToken
+        address: "0xc00e94Cb662C3520282E6f5717214004A7f26888"
+        start_block: 9601359
+      - name: COMPGovernor
+        address: "0x309a862bbC1A00e45506cB8A802D1ff10004c8C0"
+        start_block: 21688680
+      # OBOL
+      - name: ObolToken
+        address: "0x0B010000b7624eb9B3DfBC279673C76E9D29D5F7"
+        start_block: 15570746
+      - name: ObolGovernor
+        address: "0xcB1622185A0c62A80494bEde05Ba95ef29Fbf85c"
+        start_block: 21883431
+      # SHU
+      - name: SHUToken
+        address: "0xe485E2f1bab389C08721B291f6b59780feC83Fd7"
+        start_block: 19021394
+      - name: Azorius
+        address: "0xAA6BfA174d2f803b517026E93DBBEc1eBa26258e"
+        start_block: 19021698
+      - name: LinearVotingStrategy
+        address: "0x4b29d8B250B8b442ECfCd3a4e3D91933d2db720F"
+        start_block: 19021698
+      # FLUID
+      - name: FLUIDToken
+        address: "0x6f40d4A6237C257fff2dB00FA0510DeEECd303eb"
+        start_block: 12183236
+      - name: FLUIDGovernor
+        address: "0x0204Cd037B2ec03605CFdFe482D8e257C765fA1B"
+        start_block: 12183245
+      # AAVE
+      - name: AaveToken
+        address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
+        start_block: 10926829
+      - name: StkAave
+        address: "0x4da27a545c0c5B758a6BA100e3a049001de870f5"
+        start_block: 10927018
+      - name: AAave
+        address: "0xA700b4eB416Be35b2911fd5Dee80678ff64fF6C9"
+        start_block: 16496810
+      - name: AaveV3
+        address:
+          - "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
+          - "0x4da27a545c0c5B758a6BA100e3a049001de870f5"
+          - "0xA700b4eB416Be35b2911fd5Dee80678ff64fF6C9"
+        start_block: 18870593
+
+  # === Arbitrum ===
+  - id: 42161
+    start_block: 0
+    contracts:
+      - name: ARBToken
+        address: "0x912CE59144191C1204E64559FE8253a0e49E6548"
+        start_block: 70398200
+
+  # === Optimism ===
+  - id: 10
+    start_block: 0
+    contracts:
+      - name: OPToken
+        address: "0x4200000000000000000000000000000000000042"
+        start_block: 6490467
+      - name: OPGovernor
+        address: "0xcDF27F107725988f2261Ce2256bDfCdE8B382B10"
+        start_block: 71801427
+
+  # === Scroll ===
+  - id: 534352
+    start_block: 0
+    contracts:
+      - name: SCRToken
+        address: "0xd29687c813D741E2F938F4aC377128810E217b1b"
+        start_block: 8949006
+      - name: SCRGovernor
+        address: "0x2f3f2054776bd3c2fc30d750734a8f539bb214f0"
+        start_block: 8963441
+
+  # === zkSync ===
+  - id: 324
+    start_block: 0
+    contracts:
+      - name: ZKToken
+        address: "0x5A7d6b2F92C77FAD6CCaBd7EE0624E64907Eaf3E"
+        start_block: 34572100
+      - name: ZKGovernor
+        address: "0xb83FF6501214ddF40C91C9565d095400f3F45746"
+        start_block: 55519658
