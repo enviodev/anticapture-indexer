@@ -1,9 +1,14 @@
 import { getAddress, type Address, type Hex } from "viem";
 import { type DaoIdEnum } from "../lib/enums";
-import { accountBalanceId, balanceHistoryId, transferId, feedEventId } from "../lib/id-helpers";
-import { type AddressCollection, ensureAccountsExist, toAddressSet } from "./shared";
+import { accountBalanceId, transferId } from "../lib/id-helpers";
+import { type AddressCollection, toAddressSet } from "./shared";
 
 const zeroAddress = "0x0000000000000000000000000000000000000000";
+
+// Toggle flags — comment/uncomment to enable/disable high-volume entities
+const WRITE_BALANCE_HISTORY = false; // #1: BalanceHistory — 2 writes per transfer
+const WRITE_FEED_EVENTS = false;    // #2: FeedEvent — 1 write per transfer
+const WRITE_TRANSFERS = false;      // #3: Transfer entity — 1 read + 1 write per transfer
 
 export const tokenTransfer = async (
   context: any,
@@ -48,25 +53,22 @@ export const tokenTransfer = async (
   // Build all entity IDs upfront
   const receiverAbId = accountBalanceId(normalizedTo, normalizedTokenId);
   const senderAbId = isMint ? null : accountBalanceId(normalizedFrom, normalizedTokenId);
-  const tId = transferId(transactionHash, normalizedFrom, normalizedTo);
 
   // === SINGLE concurrent read batch for ALL entities we need ===
   const readPromises: Promise<any>[] = [
-    context.Account.get(normalizedFrom),    // [0] sender account
-    context.Account.get(normalizedTo),      // [1] receiver account
+    context.Account.get(normalizedFrom),      // [0] sender account
+    context.Account.get(normalizedTo),        // [1] receiver account
     context.AccountBalance.get(receiverAbId), // [2] receiver balance
-    context.Transfer.get(tId),              // [3] existing transfer
   ];
   if (senderAbId) {
-    readPromises.push(context.AccountBalance.get(senderAbId)); // [4] sender balance
+    readPromises.push(context.AccountBalance.get(senderAbId)); // [3] sender balance
   }
 
   const results = await Promise.all(readPromises);
   const existingSenderAccount = results[0];
   const existingReceiverAccount = results[1];
   const existingReceiverAb = results[2];
-  const existingTransfer = results[3];
-  const existingSenderAb = senderAbId ? results[4] : null;
+  const existingSenderAb = senderAbId ? results[3] : null;
 
   // === Ensure accounts ===
   if (!existingSenderAccount) {
@@ -95,19 +97,22 @@ export const tokenTransfer = async (
     });
   }
 
-  // === Receiver BalanceHistory (always new — skip read, just set) ===
-  const receiverBhId = balanceHistoryId(transactionHash, normalizedTo, logIndex);
-  context.BalanceHistory.set({
-    id: receiverBhId,
-    daoId,
-    transactionHash,
-    account_id: normalizedTo,
-    balance: currentReceiverBalance,
-    delta: value,
-    deltaMod: value > 0n ? value : -value,
-    timestamp,
-    logIndex,
-  });
+  // === Receiver BalanceHistory ===
+  if (WRITE_BALANCE_HISTORY) {
+    const { balanceHistoryId } = await import("../lib/id-helpers");
+    const receiverBhId = balanceHistoryId(transactionHash, normalizedTo, logIndex);
+    context.BalanceHistory.set({
+      id: receiverBhId,
+      daoId,
+      transactionHash,
+      account_id: normalizedTo,
+      balance: currentReceiverBalance,
+      delta: value,
+      deltaMod: value > 0n ? value : -value,
+      timestamp,
+      logIndex,
+    });
+  }
 
   // === Sender balance (skip for mints) ===
   if (!isMint && senderAbId) {
@@ -129,67 +134,76 @@ export const tokenTransfer = async (
       });
     }
 
-    // Sender BalanceHistory (always new — skip read)
-    const senderBhId = balanceHistoryId(transactionHash, normalizedFrom, logIndex);
-    context.BalanceHistory.set({
-      id: senderBhId,
-      daoId,
-      transactionHash,
-      account_id: normalizedFrom,
-      balance: currentSenderBalance,
-      delta: -value,
-      deltaMod: value > 0n ? value : -value,
-      timestamp,
-      logIndex,
-    });
+    if (WRITE_BALANCE_HISTORY) {
+      const { balanceHistoryId } = await import("../lib/id-helpers");
+      const senderBhId = balanceHistoryId(transactionHash, normalizedFrom, logIndex);
+      context.BalanceHistory.set({
+        id: senderBhId,
+        daoId,
+        transactionHash,
+        account_id: normalizedFrom,
+        balance: currentSenderBalance,
+        delta: -value,
+        deltaMod: value > 0n ? value : -value,
+        timestamp,
+        logIndex,
+      });
+    }
   }
 
-  // === Upsert Transfer (already have result from concurrent read) ===
-  const normalizedCex = toAddressSet(cex);
-  const normalizedDex = toAddressSet(dex);
-  const normalizedLending = toAddressSet(lending);
-  const normalizedBurning = toAddressSet(burning);
+  // === Transfer entity ===
+  if (WRITE_TRANSFERS) {
+    const normalizedCex = toAddressSet(cex);
+    const normalizedDex = toAddressSet(dex);
+    const normalizedLending = toAddressSet(lending);
+    const normalizedBurning = toAddressSet(burning);
 
-  if (existingTransfer) {
-    context.Transfer.set({
-      ...existingTransfer,
-      amount: existingTransfer.amount + value,
-    });
-  } else {
-    context.Transfer.set({
-      id: tId,
-      transactionHash,
-      daoId,
-      token_id: normalizedTokenId,
-      amount: value,
-      fromAccount_id: normalizedFrom,
-      toAccount_id: normalizedTo,
-      timestamp,
-      logIndex,
-      isCex:
-        normalizedCex.has(normalizedFrom) || normalizedCex.has(normalizedTo),
-      isDex:
-        normalizedDex.has(normalizedFrom) || normalizedDex.has(normalizedTo),
-      isLending:
-        normalizedLending.has(normalizedFrom) ||
-        normalizedLending.has(normalizedTo),
-      isTotal:
-        normalizedBurning.has(normalizedFrom) ||
-        normalizedBurning.has(normalizedTo),
-    });
+    const tId = transferId(transactionHash, normalizedFrom, normalizedTo);
+    const existingTransfer = await context.Transfer.get(tId);
+    if (existingTransfer) {
+      context.Transfer.set({
+        ...existingTransfer,
+        amount: existingTransfer.amount + value,
+      });
+    } else {
+      context.Transfer.set({
+        id: tId,
+        transactionHash,
+        daoId,
+        token_id: normalizedTokenId,
+        amount: value,
+        fromAccount_id: normalizedFrom,
+        toAccount_id: normalizedTo,
+        timestamp,
+        logIndex,
+        isCex:
+          normalizedCex.has(normalizedFrom) || normalizedCex.has(normalizedTo),
+        isDex:
+          normalizedDex.has(normalizedFrom) || normalizedDex.has(normalizedTo),
+        isLending:
+          normalizedLending.has(normalizedFrom) ||
+          normalizedLending.has(normalizedTo),
+        isTotal:
+          normalizedBurning.has(normalizedFrom) ||
+          normalizedBurning.has(normalizedTo),
+      });
+    }
   }
 
-  // === FeedEvent (always new — no read needed) ===
-  const feId = feedEventId(transactionHash, logIndex);
-  context.FeedEvent.set({
-    id: feId,
-    type: "TRANSFER",
-    value,
-    timestamp,
-    metadata: {
-      from: normalizedFrom,
-      to: normalizedTo,
-      amount: value.toString(),
-    },
-  });
+  // === FeedEvent ===
+  if (WRITE_FEED_EVENTS) {
+    const { feedEventId } = await import("../lib/id-helpers");
+    const feId = feedEventId(transactionHash, logIndex);
+    context.FeedEvent.set({
+      id: feId,
+      type: "TRANSFER",
+      value,
+      timestamp,
+      metadata: {
+        from: normalizedFrom,
+        to: normalizedTo,
+        amount: value.toString(),
+      },
+    });
+  }
 };

@@ -1,9 +1,11 @@
 import { getAddress, type Address, type Hex } from "viem";
 import { ProposalStatus } from "../lib/constants";
 import { votesOnchainId, feedEventId } from "../lib/id-helpers";
-import { ensureAccountExists } from "./shared";
 
 const MAX_TITLE_LENGTH = 200;
+
+// Toggle — set to true to re-enable FeedEvent writes
+const WRITE_FEED_EVENTS = false;
 
 function parseProposalTitle(description: string): string {
   const normalized = description.replace(/\\n/g, "\n");
@@ -43,23 +45,19 @@ export const voteCast = async (
     logIndex: number;
   },
 ) => {
-  const {
-    voter,
-    timestamp,
-    txHash,
-    proposalId,
-    support,
-    votingPower,
-    reason,
-    logIndex,
-  } = args;
-
-  await ensureAccountExists(context, voter);
-
+  const { voter, timestamp, txHash, proposalId, support, votingPower, reason, logIndex } = args;
   const normalizedVoter = getAddress(voter);
 
+  // === Concurrent reads: account + accountPower + proposal ===
+  const [existingAccount, existingPower, proposal] = await Promise.all([
+    context.Account.get(normalizedVoter),
+    context.AccountPower.get(normalizedVoter),
+    context.ProposalsOnchain.get(proposalId),
+  ]);
+
+  if (!existingAccount) context.Account.set({ id: normalizedVoter });
+
   // Upsert account power
-  const existingPower = await context.AccountPower.get(normalizedVoter);
   if (existingPower) {
     context.AccountPower.set({
       ...existingPower,
@@ -68,33 +66,19 @@ export const voteCast = async (
     });
   } else {
     context.AccountPower.set({
-      id: normalizedVoter,
-      account_id: normalizedVoter,
-      daoId,
-      votingPower: 0n,
-      votesCount: 1,
-      proposalsCount: 0,
-      delegationsCount: 0,
-      lastVoteTimestamp: timestamp,
+      id: normalizedVoter, account_id: normalizedVoter, daoId,
+      votingPower: 0n, votesCount: 1, proposalsCount: 0, delegationsCount: 0, lastVoteTimestamp: timestamp,
     });
   }
 
   // Create vote record
   const vId = votesOnchainId(normalizedVoter, proposalId);
   context.VotesOnchain.set({
-    id: vId,
-    txHash,
-    daoId,
-    proposal_id: proposalId,
-    voter_id: normalizedVoter,
-    support: support.toString(),
-    votingPower,
-    reason,
-    timestamp,
+    id: vId, txHash, daoId, proposal_id: proposalId, voter_id: normalizedVoter,
+    support: support.toString(), votingPower, reason, timestamp,
   });
 
   // Update proposal vote totals
-  const proposal = await context.ProposalsOnchain.get(proposalId);
   if (proposal) {
     context.ProposalsOnchain.set({
       ...proposal,
@@ -104,22 +88,17 @@ export const voteCast = async (
     });
   }
 
-  // Feed event
-  const feId = feedEventId(txHash, logIndex);
-  context.FeedEvent.set({
-    id: feId,
-    type: "VOTE",
-    value: votingPower,
-    timestamp,
-    metadata: {
-      voter: normalizedVoter,
-      reason,
-      support,
-      votingPower: votingPower.toString(),
-      proposalId,
-      title: proposal?.title ?? undefined,
-    },
-  });
+  if (WRITE_FEED_EVENTS) {
+    const feId = feedEventId(txHash, logIndex);
+    context.FeedEvent.set({
+      id: feId, type: "VOTE", value: votingPower, timestamp,
+      metadata: {
+        voter: normalizedVoter, reason, support,
+        votingPower: votingPower.toString(), proposalId,
+        title: proposal?.title ?? undefined,
+      },
+    });
+  }
 };
 
 export const proposalCreated = async (
@@ -143,87 +122,48 @@ export const proposalCreated = async (
     logIndex: number;
   },
 ) => {
-  const {
-    proposer,
-    proposalId,
-    txHash,
-    targets,
-    values,
-    signatures,
-    calldatas,
-    startBlock,
-    endBlock,
-    description,
-    blockNumber,
-    timestamp,
-    logIndex,
-  } = args;
+  const { proposer, proposalId, txHash, targets, values, signatures, calldatas, startBlock, endBlock, description, blockNumber, timestamp, logIndex } = args;
+  const normalizedProposer = getAddress(proposer);
 
-  await ensureAccountExists(context, proposer);
+  // === Concurrent reads: account + accountPower ===
+  const [existingAccount, existingPower] = await Promise.all([
+    context.Account.get(normalizedProposer),
+    context.AccountPower.get(normalizedProposer),
+  ]);
+
+  if (!existingAccount) context.Account.set({ id: normalizedProposer });
 
   const title = parseProposalTitle(description);
   const blockDelta = parseInt(endBlock) - Number(blockNumber);
 
   context.ProposalsOnchain.set({
-    id: proposalId,
-    txHash,
-    daoId,
-    proposer_id: getAddress(proposer),
-    targets: targets.map((a) => getAddress(a)),
-    values: values.map((v) => v.toString()),
-    signatures,
-    calldatas,
-    startBlock: parseInt(startBlock),
-    endBlock: parseInt(endBlock),
-    title,
-    description,
-    timestamp,
-    logIndex,
-    status: ProposalStatus.PENDING,
+    id: proposalId, txHash, daoId, proposer_id: normalizedProposer,
+    targets: targets.map((a) => getAddress(a)), values: values.map((v) => v.toString()),
+    signatures, calldatas, startBlock: parseInt(startBlock), endBlock: parseInt(endBlock),
+    title, description, timestamp, logIndex, status: ProposalStatus.PENDING,
     endTimestamp: timestamp + BigInt(blockDelta * blockTime),
-    forVotes: 0n,
-    againstVotes: 0n,
-    abstainVotes: 0n,
-    proposalType: args.proposalType ?? undefined,
+    forVotes: 0n, againstVotes: 0n, abstainVotes: 0n, proposalType: args.proposalType ?? undefined,
   });
 
   // Update proposer's proposal count
-  const normalizedProposer = getAddress(proposer);
-  const existingPower = await context.AccountPower.get(normalizedProposer);
   let proposerVotingPower = 0n;
   if (existingPower) {
     proposerVotingPower = existingPower.votingPower;
-    context.AccountPower.set({
-      ...existingPower,
-      proposalsCount: existingPower.proposalsCount + 1,
-    });
+    context.AccountPower.set({ ...existingPower, proposalsCount: existingPower.proposalsCount + 1 });
   } else {
     context.AccountPower.set({
-      id: normalizedProposer,
-      account_id: normalizedProposer,
-      daoId,
-      votingPower: 0n,
-      votesCount: 0,
-      proposalsCount: 1,
-      delegationsCount: 0,
-      lastVoteTimestamp: 0n,
+      id: normalizedProposer, account_id: normalizedProposer, daoId,
+      votingPower: 0n, votesCount: 0, proposalsCount: 1, delegationsCount: 0, lastVoteTimestamp: 0n,
     });
   }
 
-  // Feed event
-  const feId = feedEventId(txHash, logIndex);
-  context.FeedEvent.set({
-    id: feId,
-    type: "PROPOSAL",
-    value: 0n,
-    timestamp,
-    metadata: {
-      id: proposalId,
-      proposer: normalizedProposer,
-      votingPower: proposerVotingPower.toString(),
-      title,
-    },
-  });
+  if (WRITE_FEED_EVENTS) {
+    const feId = feedEventId(txHash, logIndex);
+    context.FeedEvent.set({
+      id: feId, type: "PROPOSAL", value: 0n, timestamp,
+      metadata: { id: proposalId, proposer: normalizedProposer, votingPower: proposerVotingPower.toString(), title },
+    });
+  }
 };
 
 export const updateProposalStatus = async (
@@ -233,10 +173,7 @@ export const updateProposalStatus = async (
 ) => {
   const proposal = await context.ProposalsOnchain.get(proposalId);
   if (proposal) {
-    context.ProposalsOnchain.set({
-      ...proposal,
-      status,
-    });
+    context.ProposalsOnchain.set({ ...proposal, status });
   }
 };
 
@@ -256,24 +193,16 @@ export const proposalExtended = async (
     proposal.endTimestamp +
     BigInt((Number(extendedDeadline) - proposal.endBlock) * blockTime);
 
-  context.ProposalsOnchain.set({
-    ...proposal,
-    endBlock: Number(extendedDeadline),
-    endTimestamp,
-  });
+  context.ProposalsOnchain.set({ ...proposal, endBlock: Number(extendedDeadline), endTimestamp });
 
-  const feId = feedEventId(txHash, logIndex);
-  context.FeedEvent.set({
-    id: feId,
-    type: "PROPOSAL_EXTENDED",
-    value: 0n,
-    timestamp,
-    metadata: {
-      id: proposalId,
-      title: proposal.title ?? undefined,
-      endBlock: Number(extendedDeadline),
-      endTimestamp: endTimestamp.toString(),
-      proposer: proposal.proposer_id,
-    },
-  });
+  if (WRITE_FEED_EVENTS) {
+    const feId = feedEventId(txHash, logIndex);
+    context.FeedEvent.set({
+      id: feId, type: "PROPOSAL_EXTENDED", value: 0n, timestamp,
+      metadata: {
+        id: proposalId, title: proposal.title ?? undefined,
+        endBlock: Number(extendedDeadline), endTimestamp: endTimestamp.toString(), proposer: proposal.proposer_id,
+      },
+    });
+  }
 };

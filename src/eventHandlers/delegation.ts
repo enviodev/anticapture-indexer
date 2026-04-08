@@ -14,11 +14,13 @@ import {
 } from "../lib/id-helpers";
 import {
   createAddressSet,
-  ensureAccountExists,
   ensureAccountsExist,
 } from "./shared";
 
 const zeroAddress = "0x0000000000000000000000000000000000000000";
+
+// Toggle — set to true to re-enable FeedEvent writes
+const WRITE_FEED_EVENTS = false;
 
 type DelegationAddressSets = {
   cex: ReadonlySet<Address>;
@@ -55,19 +57,41 @@ export const delegateChanged = async (
 
   const normalizedDelegator = getAddress(delegator);
   const normalizedDelegate = getAddress(delegate);
+  const normalizedTokenId = getAddress(tokenId);
+  const abId = accountBalanceId(normalizedDelegator, normalizedTokenId);
 
-  await ensureAccountsExist(context, [delegator, delegate]);
+  // === Concurrent reads: accounts + delegation + accountBalance + accountPowers ===
+  const prevDelegateAddr = previousDelegate !== zeroAddress ? getAddress(previousDelegate) : null;
+
+  const readPromises: Promise<any>[] = [
+    context.Account.get(normalizedDelegator),   // [0]
+    context.Account.get(normalizedDelegate),    // [1]
+    context.Delegation.get(delegationId(txHash, normalizedDelegator, normalizedDelegate)), // [2]
+    context.AccountBalance.get(abId),           // [3]
+    context.AccountPower.get(normalizedDelegate), // [4]
+  ];
+  if (prevDelegateAddr) {
+    readPromises.push(context.AccountPower.get(prevDelegateAddr)); // [5]
+  }
+
+  const results = await Promise.all(readPromises);
+  const existingDelegatorAccount = results[0];
+  const existingDelegateAccount = results[1];
+  const existingDel = results[2];
+  const existingAb = results[3];
+  const existingNewPower = results[4];
+  const existingPrevPower = prevDelegateAddr ? results[5] : null;
+
+  // Ensure accounts
+  if (!existingDelegatorAccount) context.Account.set({ id: normalizedDelegator });
+  if (!existingDelegateAccount) context.Account.set({ id: normalizedDelegate });
 
   // Get delegator balance
   let delegatorBalanceValue: bigint = 0n;
   if (_delegatorBalance !== undefined) {
     delegatorBalanceValue = _delegatorBalance;
-  } else {
-    const abId = accountBalanceId(normalizedDelegator, getAddress(tokenId));
-    const ab = await context.AccountBalance.get(abId);
-    if (ab) {
-      delegatorBalanceValue = ab.balance;
-    }
+  } else if (existingAb) {
+    delegatorBalanceValue = existingAb.balance;
   }
 
   // Pre-compute address sets
@@ -80,15 +104,10 @@ export const delegateChanged = async (
 
   const isCex = cex.has(normalizedDelegator) || cex.has(normalizedDelegate);
   const isDex = dex.has(normalizedDelegator) || dex.has(normalizedDelegate);
-  const isLending =
-    lending.has(normalizedDelegator) || lending.has(normalizedDelegate);
-  const isBurning =
-    burning.has(normalizedDelegator) || burning.has(normalizedDelegate);
-  const isTotal = isBurning;
+  const isLending = lending.has(normalizedDelegator) || lending.has(normalizedDelegate);
+  const isBurning = burning.has(normalizedDelegator) || burning.has(normalizedDelegate);
 
   // Upsert delegation
-  const delId = delegationId(txHash, normalizedDelegator, normalizedDelegate);
-  const existingDel = await context.Delegation.get(delId);
   if (existingDel) {
     context.Delegation.set({
       ...existingDel,
@@ -96,7 +115,7 @@ export const delegateChanged = async (
     });
   } else {
     context.Delegation.set({
-      id: delId,
+      id: delegationId(txHash, normalizedDelegator, normalizedDelegate),
       transactionHash: txHash,
       daoId,
       delegateAccount_id: normalizedDelegate,
@@ -108,33 +127,26 @@ export const delegateChanged = async (
       isCex,
       isDex,
       isLending,
-      isTotal,
+      isTotal: isBurning,
       type: null,
     });
   }
 
   // Update delegator's accountBalance delegate
-  const abId = accountBalanceId(normalizedDelegator, getAddress(tokenId));
-  const existingAb = await context.AccountBalance.get(abId);
   if (existingAb) {
-    context.AccountBalance.set({
-      ...existingAb,
-      delegate: normalizedDelegate,
-    });
+    context.AccountBalance.set({ ...existingAb, delegate: normalizedDelegate });
   } else {
     context.AccountBalance.set({
       id: abId,
       account_id: normalizedDelegator,
-      token_id: getAddress(tokenId),
+      token_id: normalizedTokenId,
       delegate: normalizedDelegate,
       balance: 0n,
     });
   }
 
   // Decrement previous delegate's delegation count
-  if (previousDelegate !== zeroAddress) {
-    const prevPowerId = getAddress(previousDelegate);
-    const existingPrevPower = await context.AccountPower.get(prevPowerId);
+  if (prevDelegateAddr) {
     if (existingPrevPower) {
       context.AccountPower.set({
         ...existingPrevPower,
@@ -142,20 +154,13 @@ export const delegateChanged = async (
       });
     } else {
       context.AccountPower.set({
-        id: prevPowerId,
-        account_id: prevPowerId,
-        daoId,
-        votingPower: 0n,
-        votesCount: 0,
-        proposalsCount: 0,
-        delegationsCount: 0,
-        lastVoteTimestamp: 0n,
+        id: prevDelegateAddr, account_id: prevDelegateAddr, daoId,
+        votingPower: 0n, votesCount: 0, proposalsCount: 0, delegationsCount: 0, lastVoteTimestamp: 0n,
       });
     }
   }
 
   // Increment new delegate's delegation count
-  const existingNewPower = await context.AccountPower.get(normalizedDelegate);
   if (existingNewPower) {
     context.AccountPower.set({
       ...existingNewPower,
@@ -163,31 +168,22 @@ export const delegateChanged = async (
     });
   } else {
     context.AccountPower.set({
-      id: normalizedDelegate,
-      account_id: normalizedDelegate,
-      daoId,
-      votingPower: 0n,
-      votesCount: 0,
-      proposalsCount: 0,
-      delegationsCount: 1,
-      lastVoteTimestamp: 0n,
+      id: normalizedDelegate, account_id: normalizedDelegate, daoId,
+      votingPower: 0n, votesCount: 0, proposalsCount: 0, delegationsCount: 1, lastVoteTimestamp: 0n,
     });
   }
 
   // Feed event
-  const feId = feedEventId(txHash, logIndex);
-  context.FeedEvent.set({
-    id: feId,
-    type: "DELEGATION",
-    value: delegatorBalanceValue,
-    timestamp,
-    metadata: {
-      delegator: normalizedDelegator,
-      delegate: normalizedDelegate,
-      previousDelegate: getAddress(previousDelegate),
-      amount: delegatorBalanceValue.toString(),
-    },
-  });
+  if (WRITE_FEED_EVENTS) {
+    const feId = feedEventId(txHash, logIndex);
+    context.FeedEvent.set({
+      id: feId, type: "DELEGATION", value: delegatorBalanceValue, timestamp,
+      metadata: {
+        delegator: normalizedDelegator, delegate: normalizedDelegate,
+        previousDelegate: getAddress(previousDelegate), amount: delegatorBalanceValue.toString(),
+      },
+    });
+  }
 };
 
 export const delegatedVotesChanged = async (
@@ -202,64 +198,46 @@ export const delegatedVotesChanged = async (
     logIndex: number;
   },
 ) => {
-  const { delegate, txHash, newBalance, oldBalance, timestamp, logIndex } =
-    args;
-
+  const { delegate, txHash, newBalance, oldBalance, timestamp, logIndex } = args;
   const normalizedDelegate = getAddress(delegate);
-
-  await ensureAccountExists(context, delegate);
 
   const vpDelta = newBalance - oldBalance;
   const deltaMod = vpDelta > 0n ? vpDelta : -vpDelta;
 
-  // Insert voting power history (no conflict)
+  // === Concurrent reads: account + votingPowerHistory + accountPower ===
   const vphId = votingPowerHistoryId(txHash, normalizedDelegate, logIndex);
-  const existingVph = await context.VotingPowerHistory.get(vphId);
+  const [existingAccount, existingVph, existingPower] = await Promise.all([
+    context.Account.get(normalizedDelegate),
+    context.VotingPowerHistory.get(vphId),
+    context.AccountPower.get(normalizedDelegate),
+  ]);
+
+  if (!existingAccount) context.Account.set({ id: normalizedDelegate });
+
+  // VotingPowerHistory (no conflict)
   if (!existingVph) {
     context.VotingPowerHistory.set({
-      id: vphId,
-      daoId,
-      transactionHash: txHash,
-      account_id: normalizedDelegate,
-      votingPower: newBalance,
-      delta: vpDelta,
-      deltaMod,
-      timestamp,
-      logIndex,
+      id: vphId, daoId, transactionHash: txHash, account_id: normalizedDelegate,
+      votingPower: newBalance, delta: vpDelta, deltaMod, timestamp, logIndex,
     });
   }
 
   // Upsert account power
-  const existingPower = await context.AccountPower.get(normalizedDelegate);
   if (existingPower) {
-    context.AccountPower.set({
-      ...existingPower,
-      votingPower: newBalance,
-    });
+    context.AccountPower.set({ ...existingPower, votingPower: newBalance });
   } else {
     context.AccountPower.set({
-      id: normalizedDelegate,
-      account_id: normalizedDelegate,
-      daoId,
-      votingPower: newBalance,
-      votesCount: 0,
-      proposalsCount: 0,
-      delegationsCount: 0,
-      lastVoteTimestamp: 0n,
+      id: normalizedDelegate, account_id: normalizedDelegate, daoId,
+      votingPower: newBalance, votesCount: 0, proposalsCount: 0, delegationsCount: 0, lastVoteTimestamp: 0n,
     });
   }
 
   // Feed event
-  const feId = feedEventId(txHash, logIndex);
-  context.FeedEvent.set({
-    id: feId,
-    type: "DELEGATION_VOTES_CHANGED",
-    value: deltaMod,
-    timestamp,
-    metadata: {
-      delta: vpDelta.toString(),
-      deltaMod: deltaMod.toString(),
-      delegate: normalizedDelegate,
-    },
-  });
+  if (WRITE_FEED_EVENTS) {
+    const feId = feedEventId(txHash, logIndex);
+    context.FeedEvent.set({
+      id: feId, type: "DELEGATION_VOTES_CHANGED", value: deltaMod, timestamp,
+      metadata: { delta: vpDelta.toString(), deltaMod: deltaMod.toString(), delegate: normalizedDelegate },
+    });
+  }
 };

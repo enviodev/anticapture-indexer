@@ -355,43 +355,43 @@ chains:
           - "0xA700b4eB416Be35b2911fd5Dee80678ff64fF6C9"
         start_block: 18870593
 
-  # === Arbitrum ===
-  - id: 42161
-    start_block: 0
-    contracts:
-      - name: ARBToken
-        address: "0x912CE59144191C1204E64559FE8253a0e49E6548"
-        start_block: 70398200
+  # === Arbitrum (commented out for faster initial sync — uncomment to enable) ===
+  # - id: 42161
+  #   start_block: 0
+  #   contracts:
+  #     - name: ARBToken
+  #       address: "0x912CE59144191C1204E64559FE8253a0e49E6548"
+  #       start_block: 70398200
 
-  # === Optimism ===
-  - id: 10
-    start_block: 0
-    contracts:
-      - name: OPToken
-        address: "0x4200000000000000000000000000000000000042"
-        start_block: 6490467
-      - name: OPGovernor
-        address: "0xcDF27F107725988f2261Ce2256bDfCdE8B382B10"
-        start_block: 71801427
+  # === Optimism (commented out for faster initial sync — uncomment to enable) ===
+  # - id: 10
+  #   start_block: 0
+  #   contracts:
+  #     - name: OPToken
+  #       address: "0x4200000000000000000000000000000000000042"
+  #       start_block: 6490467
+  #     - name: OPGovernor
+  #       address: "0xcDF27F107725988f2261Ce2256bDfCdE8B382B10"
+  #       start_block: 71801427
 
-  # === Scroll ===
-  - id: 534352
-    start_block: 0
-    contracts:
-      - name: SCRToken
-        address: "0xd29687c813D741E2F938F4aC377128810E217b1b"
-        start_block: 8949006
-      - name: SCRGovernor
-        address: "0x2f3f2054776bd3c2fc30d750734a8f539bb214f0"
-        start_block: 8963441
+  # === Scroll (commented out for faster initial sync — uncomment to enable) ===
+  # - id: 534352
+  #   start_block: 0
+  #   contracts:
+  #     - name: SCRToken
+  #       address: "0xd29687c813D741E2F938F4aC377128810E217b1b"
+  #       start_block: 8949006
+  #     - name: SCRGovernor
+  #       address: "0x2f3f2054776bd3c2fc30d750734a8f539bb214f0"
+  #       start_block: 8963441
 
-  # === zkSync ===
-  - id: 324
-    start_block: 0
-    contracts:
-      - name: ZKToken
-        address: "0x5A7d6b2F92C77FAD6CCaBd7EE0624E64907Eaf3E"
-        start_block: 34572100
-      - name: ZKGovernor
-        address: "0xb83FF6501214ddF40C91C9565d095400f3F45746"
-        start_block: 55519658
+  # === zkSync (commented out for faster initial sync — uncomment to enable) ===
+  # - id: 324
+  #   start_block: 0
+  #   contracts:
+  #     - name: ZKToken
+  #       address: "0x5A7d6b2F92C77FAD6CCaBd7EE0624E64907Eaf3E"
+  #       start_block: 34572100
+  #     - name: ZKGovernor
+  #       address: "0xb83FF6501214ddF40C91C9565d095400f3F45746"
+  #       start_block: 55519658
