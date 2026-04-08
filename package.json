@@ -14,7 +14,8 @@
     "vitest": "4.0.18"
   },
   "dependencies": {
-    "envio": "3.0.0-alpha.21"
+    "envio": "3.0.0-alpha.21",
+    "viem": "^2.37.11"
   },
   "optionalDependencies": {
     "generated": "./anticapture-indexer/../generated"
