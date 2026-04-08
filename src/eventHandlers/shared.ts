@@ -31,6 +31,24 @@ export const toAddressSet = (
   return addresses as ReadonlySet<Address>;
 };
 
+/**
+ * Ensure accounts exist — uses Promise.all for concurrent reads.
+ */
+export const ensureAccountsExist = async (
+  context: any,
+  addresses: Address[],
+): Promise<void> => {
+  const normalized = normalizeAddressCollection(addresses);
+  const existing = await Promise.all(
+    normalized.map((id) => context.Account.get(id)),
+  );
+  for (let i = 0; i < normalized.length; i++) {
+    if (!existing[i]) {
+      context.Account.set({ id: normalized[i] });
+    }
+  }
+};
+
 export const ensureAccountExists = async (
   context: any,
   address: Address,
@@ -39,19 +57,6 @@ export const ensureAccountExists = async (
   const existing = await context.Account.get(id);
   if (!existing) {
     context.Account.set({ id });
-  }
-};
-
-export const ensureAccountsExist = async (
-  context: any,
-  addresses: Address[],
-): Promise<void> => {
-  const normalized = normalizeAddressCollection(addresses);
-  for (const id of normalized) {
-    const existing = await context.Account.get(id);
-    if (!existing) {
-      context.Account.set({ id });
-    }
   }
 };
 
@@ -141,6 +146,7 @@ export const handleTransaction = async (
     normalizedBurning.has(addr),
   );
 
+  // Early exit — no classified address involved, skip DB read entirely
   if (!(isCex || isDex || isLending || isTotal)) {
     return;
   }

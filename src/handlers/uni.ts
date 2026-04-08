@@ -1,14 +1,12 @@
 import { UNIToken, UNIGovernor } from "generated";
 import { getAddress, type Address } from "viem";
 import { DaoIdEnum } from "../lib/enums";
-import { MetricTypesEnum, CONTRACT_ADDRESSES, ProposalStatus } from "../lib/constants";
+import { CONTRACT_ADDRESSES, ProposalStatus } from "../lib/constants";
 import { getAddressSetsForDao } from "../lib/dao-router";
 import { tokenTransfer } from "../eventHandlers/transfer";
 import { delegateChanged, delegatedVotesChanged } from "../eventHandlers/delegation";
 import { voteCast, proposalCreated, updateProposalStatus } from "../eventHandlers/voting";
-import { updateSupplyMetric } from "../eventHandlers/metrics/supply";
-import { updateTotalSupply } from "../eventHandlers/metrics/total";
-import { updateCirculatingSupply } from "../eventHandlers/metrics/circulating";
+import { updateAllSupplyMetrics } from "../eventHandlers/metrics";
 import { updateDelegatedSupply } from "../eventHandlers/metrics/delegated";
 import { handleTransaction } from "../eventHandlers/shared";
 
@@ -41,21 +39,12 @@ UNIToken.Transfer.handler(async ({ event, context }) => {
     timestamp, logIndex: event.logIndex,
   }, { cex: sets.cex, dex: sets.dex, lending: sets.lending, burning: sets.burning });
 
-  const lendingChanged = await updateSupplyMetric(context, "lendingSupply", sets.lending, MetricTypesEnum.LENDING_SUPPLY, from, to, value, daoId, tokenAddress, timestamp);
-  const cexChanged = await updateSupplyMetric(context, "cexSupply", sets.cex, MetricTypesEnum.CEX_SUPPLY, from, to, value, daoId, tokenAddress, timestamp);
-  const dexChanged = await updateSupplyMetric(context, "dexSupply", sets.dex, MetricTypesEnum.DEX_SUPPLY, from, to, value, daoId, tokenAddress, timestamp);
-  const treasuryChanged = await updateSupplyMetric(context, "treasury", sets.treasury, MetricTypesEnum.TREASURY, from, to, value, daoId, tokenAddress, timestamp);
-  const nonCirculatingChanged = await updateSupplyMetric(context, "nonCirculatingSupply", sets.nonCirculating, MetricTypesEnum.NON_CIRCULATING_SUPPLY, from, to, value, daoId, tokenAddress, timestamp);
-  const totalSupplyChanged = await updateTotalSupply(context, sets.burning, MetricTypesEnum.TOTAL_SUPPLY, from, to, value, daoId, tokenAddress, timestamp);
-
-  if (lendingChanged || cexChanged || dexChanged || treasuryChanged || nonCirculatingChanged || totalSupplyChanged) {
-    await updateCirculatingSupply(context, daoId, tokenAddress, timestamp);
-  }
+  // Single batched supply update — 1 Token read instead of 7
+  await updateAllSupplyMetrics(context, from, to, value, daoId, tokenAddress, timestamp, sets);
 
   const txTo = event.transaction.to;
-  const txFrom = event.transaction.from;
   if (!txTo) return;
-  await handleTransaction(context, event.transaction.hash, txFrom!, txTo, timestamp, [from, to], { cex: sets.cex, dex: sets.dex, lending: sets.lending, burning: sets.burning });
+  await handleTransaction(context, event.transaction.hash, event.transaction.from!, txTo, timestamp, [from, to], { cex: sets.cex, dex: sets.dex, lending: sets.lending, burning: sets.burning });
 });
 
 UNIToken.DelegateChanged.handler(async ({ event, context }) => {
@@ -67,9 +56,8 @@ UNIToken.DelegateChanged.handler(async ({ event, context }) => {
   }, { cex: sets.cex, dex: sets.dex, lending: sets.lending, burning: sets.burning });
 
   const txTo = event.transaction.to;
-  const txFrom = event.transaction.from;
   if (!txTo) return;
-  await handleTransaction(context, event.transaction.hash, txFrom!, txTo, BigInt(event.block.timestamp), [event.params.delegator, event.params.toDelegate]);
+  await handleTransaction(context, event.transaction.hash, event.transaction.from!, txTo, BigInt(event.block.timestamp), [event.params.delegator, event.params.toDelegate]);
 });
 
 UNIToken.DelegateVotesChanged.handler(async ({ event, context }) => {
@@ -81,9 +69,8 @@ UNIToken.DelegateVotesChanged.handler(async ({ event, context }) => {
   await updateDelegatedSupply(context, daoId, event.srcAddress as Address, event.params.newBalance - event.params.previousBalance, BigInt(event.block.timestamp));
 
   const txTo = event.transaction.to;
-  const txFrom = event.transaction.from;
   if (!txTo) return;
-  await handleTransaction(context, event.transaction.hash, txFrom!, txTo, BigInt(event.block.timestamp), [event.params.delegate]);
+  await handleTransaction(context, event.transaction.hash, event.transaction.from!, txTo, BigInt(event.block.timestamp), [event.params.delegate]);
 });
 
 UNIGovernor.VoteCast.handler(async ({ event, context }) => {

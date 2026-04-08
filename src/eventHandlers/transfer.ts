@@ -43,11 +43,40 @@ export const tokenTransfer = async (
   const normalizedTo = getAddress(to);
   const normalizedTokenId = getAddress(tokenId);
 
-  await ensureAccountsExist(context, [from, to]);
+  const isMint = from === zeroAddress;
 
-  // Upsert receiver AccountBalance
+  // Build all entity IDs upfront
   const receiverAbId = accountBalanceId(normalizedTo, normalizedTokenId);
-  const existingReceiverAb = await context.AccountBalance.get(receiverAbId);
+  const senderAbId = isMint ? null : accountBalanceId(normalizedFrom, normalizedTokenId);
+  const tId = transferId(transactionHash, normalizedFrom, normalizedTo);
+
+  // === SINGLE concurrent read batch for ALL entities we need ===
+  const readPromises: Promise<any>[] = [
+    context.Account.get(normalizedFrom),    // [0] sender account
+    context.Account.get(normalizedTo),      // [1] receiver account
+    context.AccountBalance.get(receiverAbId), // [2] receiver balance
+    context.Transfer.get(tId),              // [3] existing transfer
+  ];
+  if (senderAbId) {
+    readPromises.push(context.AccountBalance.get(senderAbId)); // [4] sender balance
+  }
+
+  const results = await Promise.all(readPromises);
+  const existingSenderAccount = results[0];
+  const existingReceiverAccount = results[1];
+  const existingReceiverAb = results[2];
+  const existingTransfer = results[3];
+  const existingSenderAb = senderAbId ? results[4] : null;
+
+  // === Ensure accounts ===
+  if (!existingSenderAccount) {
+    context.Account.set({ id: normalizedFrom });
+  }
+  if (!existingReceiverAccount) {
+    context.Account.set({ id: normalizedTo });
+  }
+
+  // === Upsert receiver AccountBalance ===
   let currentReceiverBalance: bigint;
   if (existingReceiverAb) {
     currentReceiverBalance = existingReceiverAb.balance + value;
@@ -66,27 +95,22 @@ export const tokenTransfer = async (
     });
   }
 
-  // Insert receiver BalanceHistory (no conflict)
+  // === Receiver BalanceHistory (always new — skip read, just set) ===
   const receiverBhId = balanceHistoryId(transactionHash, normalizedTo, logIndex);
-  const existingReceiverBh = await context.BalanceHistory.get(receiverBhId);
-  if (!existingReceiverBh) {
-    context.BalanceHistory.set({
-      id: receiverBhId,
-      daoId,
-      transactionHash,
-      account_id: normalizedTo,
-      balance: currentReceiverBalance,
-      delta: value,
-      deltaMod: value > 0n ? value : -value,
-      timestamp,
-      logIndex,
-    });
-  }
+  context.BalanceHistory.set({
+    id: receiverBhId,
+    daoId,
+    transactionHash,
+    account_id: normalizedTo,
+    balance: currentReceiverBalance,
+    delta: value,
+    deltaMod: value > 0n ? value : -value,
+    timestamp,
+    logIndex,
+  });
 
-  // Update sender (skip if minting from zero address)
-  if (from !== zeroAddress) {
-    const senderAbId = accountBalanceId(normalizedFrom, normalizedTokenId);
-    const existingSenderAb = await context.AccountBalance.get(senderAbId);
+  // === Sender balance (skip for mints) ===
+  if (!isMint && senderAbId) {
     let currentSenderBalance: bigint;
     if (existingSenderAb) {
       currentSenderBalance = existingSenderAb.balance - value;
@@ -105,31 +129,27 @@ export const tokenTransfer = async (
       });
     }
 
+    // Sender BalanceHistory (always new — skip read)
     const senderBhId = balanceHistoryId(transactionHash, normalizedFrom, logIndex);
-    const existingSenderBh = await context.BalanceHistory.get(senderBhId);
-    if (!existingSenderBh) {
-      context.BalanceHistory.set({
-        id: senderBhId,
-        daoId,
-        transactionHash,
-        account_id: normalizedFrom,
-        balance: currentSenderBalance,
-        delta: -value,
-        deltaMod: value > 0n ? value : -value,
-        timestamp,
-        logIndex,
-      });
-    }
+    context.BalanceHistory.set({
+      id: senderBhId,
+      daoId,
+      transactionHash,
+      account_id: normalizedFrom,
+      balance: currentSenderBalance,
+      delta: -value,
+      deltaMod: value > 0n ? value : -value,
+      timestamp,
+      logIndex,
+    });
   }
 
-  // Upsert Transfer
+  // === Upsert Transfer (already have result from concurrent read) ===
   const normalizedCex = toAddressSet(cex);
   const normalizedDex = toAddressSet(dex);
   const normalizedLending = toAddressSet(lending);
   const normalizedBurning = toAddressSet(burning);
 
-  const tId = transferId(transactionHash, normalizedFrom, normalizedTo);
-  const existingTransfer = await context.Transfer.get(tId);
   if (existingTransfer) {
     context.Transfer.set({
       ...existingTransfer,
@@ -159,7 +179,7 @@ export const tokenTransfer = async (
     });
   }
 
-  // Insert feed event
+  // === FeedEvent (always new — no read needed) ===
   const feId = feedEventId(transactionHash, logIndex);
   context.FeedEvent.set({
     id: feId,

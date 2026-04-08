@@ -1,6 +1,5 @@
 import { getAddress, type Address } from "viem";
 import { type DaoIdEnum } from "../lib/enums";
-import { MetricTypesEnum } from "../lib/constants";
 import {
   accountBalanceId,
   transferId,
@@ -10,9 +9,7 @@ import {
   feedEventId,
 } from "../lib/id-helpers";
 import { ensureAccountsExist } from "./shared";
-import { updateSupplyMetric } from "./metrics/supply";
-import { updateTotalSupply } from "./metrics/total";
-import { updateCirculatingSupply } from "./metrics/circulating";
+import { updateAllSupplyMetrics } from "./metrics";
 
 const zeroAddress = "0x0000000000000000000000000000000000000000";
 
@@ -272,18 +269,7 @@ export async function aaveTransfer(
   });
 
   // Supply metrics
-  const { cex, dex, lending, treasury, nonCirculating, burning } = addressSets;
-
-  const lendingChanged = await updateSupplyMetric(context, "lendingSupply", lending, MetricTypesEnum.LENDING_SUPPLY, _from, _to, value, daoId, address, timestamp);
-  const cexChanged = await updateSupplyMetric(context, "cexSupply", cex, MetricTypesEnum.CEX_SUPPLY, _from, _to, value, daoId, address, timestamp);
-  const dexChanged = await updateSupplyMetric(context, "dexSupply", dex, MetricTypesEnum.DEX_SUPPLY, _from, _to, value, daoId, address, timestamp);
-  const treasuryChanged = await updateSupplyMetric(context, "treasury", treasury, MetricTypesEnum.TREASURY, _from, _to, value, daoId, address, timestamp);
-  const nonCirculatingChanged = await updateSupplyMetric(context, "nonCirculatingSupply", nonCirculating, MetricTypesEnum.NON_CIRCULATING_SUPPLY, _from, _to, value, daoId, address, timestamp);
-  const totalSupplyChanged = await updateTotalSupply(context, burning, MetricTypesEnum.TOTAL_SUPPLY, _from, _to, value, daoId, address, timestamp);
-
-  if (lendingChanged || cexChanged || dexChanged || treasuryChanged || nonCirculatingChanged || totalSupplyChanged) {
-    await updateCirculatingSupply(context, daoId, address, timestamp);
-  }
+  await updateAllSupplyMetrics(context, _from, _to, value, daoId, address, timestamp, addressSets);
 }
 
 export async function aaveDelegateChanged(
