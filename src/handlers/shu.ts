@@ -146,9 +146,11 @@ Azorius.ProposalCreated.handler(async ({ event, context }) => {
     // metadata is not JSON, use as description
   }
 
-  const targets = transactions.map((t: any) => getAddress(t.to));
-  const values = transactions.map((t: any) => t.value.toString());
-  const calldatas = transactions.map((t: any) => t.data);
+  // Azorius transactions are tuples: (address to, uint256 value, bytes data, uint8 operation)
+  // Envio decodes tuples as arrays: [to, value, data, operation]
+  const targets = transactions.map((t: any) => getAddress(t[0] ?? t.to));
+  const values = transactions.map((t: any) => (t[1] ?? t.value).toString());
+  const calldatas = transactions.map((t: any) => t[2] ?? t.data);
 
   // Upsert: ProposalInitialized may have already created a partial row
   const existing = await context.ProposalsOnchain.get(proposalId);
