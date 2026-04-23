@@ -11,9 +11,9 @@ import { updateAllSupplyMetrics } from "./metrics";
 const zeroAddress = "0x0000000000000000000000000000000000000000";
 
 // Toggle flags — match transfer.ts
-const WRITE_BALANCE_HISTORY = false;
-const WRITE_FEED_EVENTS = false;
-const WRITE_TRANSFERS = false;
+const WRITE_BALANCE_HISTORY = true;
+const WRITE_FEED_EVENTS = true;
+const WRITE_TRANSFERS = true;
 
 export type AaveAddressSets = {
   cex: ReadonlySet<Address>;

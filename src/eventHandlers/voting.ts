@@ -5,7 +5,7 @@ import { votesOnchainId, feedEventId } from "../lib/id-helpers";
 const MAX_TITLE_LENGTH = 200;
 
 // Toggle — set to true to re-enable FeedEvent writes
-const WRITE_FEED_EVENTS = false;
+const WRITE_FEED_EVENTS = true;
 
 function parseProposalTitle(description: string): string {
   const normalized = description.replace(/\\n/g, "\n");

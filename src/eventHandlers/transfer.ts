@@ -6,9 +6,9 @@ import { type AddressCollection, toAddressSet } from "./shared";
 const zeroAddress = "0x0000000000000000000000000000000000000000";
 
 // Toggle flags — comment/uncomment to enable/disable high-volume entities
-const WRITE_BALANCE_HISTORY = false; // #1: BalanceHistory — 2 writes per transfer
-const WRITE_FEED_EVENTS = false;    // #2: FeedEvent — 1 write per transfer
-const WRITE_TRANSFERS = false;      // #3: Transfer entity — 1 read + 1 write per transfer
+const WRITE_BALANCE_HISTORY = true; // #1: BalanceHistory — 2 writes per transfer
+const WRITE_FEED_EVENTS = true;     // #2: FeedEvent — 1 write per transfer
+const WRITE_TRANSFERS = true;       // #3: Transfer entity — 1 read + 1 write per transfer
 
 export const tokenTransfer = async (
   context: any,
