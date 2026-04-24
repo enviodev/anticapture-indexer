@@ -20,7 +20,7 @@ import {
 const zeroAddress = "0x0000000000000000000000000000000000000000";
 
 // Toggle — set to true to re-enable FeedEvent writes
-const WRITE_FEED_EVENTS = true;
+const WRITE_FEED_EVENTS = false;
 
 type DelegationAddressSets = {
   cex: ReadonlySet<Address>;

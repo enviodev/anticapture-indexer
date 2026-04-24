@@ -35,7 +35,7 @@ All entities, event handlers, supply metrics, and address constants are preserve
 
 ## Write toggles
 
-Four files carry boolean flags that gate writes to the highest-volume entities. **All are currently `true` (full Ponder parity).** These control **DB writes only** — no RPC, no external effects, no `createEffect` calls. They exist so you can dial back DB load for a faster backfill if needed.
+Four files carry boolean flags that gate writes to the highest-volume entities. **All are currently `false` to speed up multi-chain backfill.** Flip them to `true` for full Ponder write parity. These control **DB writes only** — no RPC, no external effects, no `createEffect` calls.
 
 ### Flag definitions
 
