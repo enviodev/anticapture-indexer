@@ -76,3 +76,4 @@ pnpm codegen
 - [Envio docs](https://docs.envio.dev)
 - [HyperIndex overview](https://docs.envio.dev/docs/HyperIndex/overview)
 - [Discord](https://discord.gg/envio)
+
