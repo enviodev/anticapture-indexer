@@ -1,4 +1,5 @@
 name: anticapture-indexer
+disable_default_cross_chain: true # recommended; default in HyperIndex v4
 description: Anticapture DAO Governance Indexer
 
 field_selection:
